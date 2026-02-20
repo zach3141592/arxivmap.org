@@ -1,0 +1,104 @@
+import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { generateResearchTree } from "@/lib/research-tree";
+
+export async function POST(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return new Response("Not configured", { status: 500 });
+  }
+
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { paperId, title, abstract, authors } = await request.json();
+  if (!paperId || !abstract) {
+    return new Response("Missing paperId or abstract", { status: 400 });
+  }
+
+  const serviceClient = createServiceClient();
+
+  // Cache check
+  const { data: cached } = await serviceClient
+    .from("research_trees")
+    .select("tree_data")
+    .eq("arxiv_id", paperId)
+    .single();
+
+  if (cached) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `event: complete\ndata: ${JSON.stringify(cached.tree_data)}\n\n`
+          )
+        );
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
+  // Generate with progress streaming
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const tree = await generateResearchTree(
+          paperId,
+          title || "",
+          abstract,
+          authors || "",
+          (step, progress) => {
+            controller.enqueue(
+              encoder.encode(
+                `event: progress\ndata: ${JSON.stringify({ step, progress })}\n\n`
+              )
+            );
+          }
+        );
+
+        controller.enqueue(
+          encoder.encode(
+            `event: complete\ndata: ${JSON.stringify(tree)}\n\n`
+          )
+        );
+        controller.close();
+
+        // Cache result (fire and forget)
+        serviceClient
+          .from("research_trees")
+          .upsert({
+            arxiv_id: paperId,
+            tree_data: tree,
+          })
+          .then();
+      } catch (err) {
+        console.error("Research tree generation error:", err);
+        controller.enqueue(
+          encoder.encode(
+            `event: error\ndata: ${JSON.stringify({ message: "Failed to generate research tree" })}\n\n`
+          )
+        );
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}

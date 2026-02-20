@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { fetchArxivPaper } from "@/lib/arxiv";
 import { SummarySection } from "./summary-section";
-import { ChatPanel } from "./chat-panel";
+import { RightPanel } from "./right-panel";
 
 export default async function PaperPage({
   params,
@@ -103,7 +103,7 @@ export default async function PaperPage({
       </div>
 
       <aside className="sticky top-0 hidden h-screen w-[400px] shrink-0 border-l border-gray-200 lg:block">
-        <ChatPanel abstract={abstract} />
+        <RightPanel paperId={paperId} title={title} abstract={abstract} authors={authors} />
       </aside>
     </div>
   );
