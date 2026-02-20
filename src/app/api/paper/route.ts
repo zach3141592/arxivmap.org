@@ -22,7 +22,8 @@ export async function DELETE(request: NextRequest) {
   await serviceClient
     .from("paper_summaries")
     .delete()
-    .eq("arxiv_id", arxivId);
+    .eq("arxiv_id", arxivId)
+    .eq("user_id", authData.user.id);
 
   return NextResponse.json({ ok: true });
 }
@@ -48,7 +49,8 @@ export async function PATCH(request: NextRequest) {
   await serviceClient
     .from("paper_summaries")
     .update({ title })
-    .eq("arxiv_id", id);
+    .eq("arxiv_id", id)
+    .eq("user_id", authData.user.id);
 
   return NextResponse.json({ ok: true });
 }

@@ -19,11 +19,12 @@ export async function GET(request: NextRequest) {
 
   const serviceClient = createServiceClient();
 
-  // Find all trees containing this paper
+  // Find all trees containing this paper for this user
   const { data: memberships } = await serviceClient
     .from("research_tree_papers")
     .select("tree_arxiv_id")
-    .eq("paper_arxiv_id", paperId);
+    .eq("paper_arxiv_id", paperId)
+    .eq("tree_user_id", authData.user.id);
 
   if (!memberships || memberships.length === 0) {
     return NextResponse.json({ trees: [] });
@@ -35,7 +36,8 @@ export async function GET(request: NextRequest) {
   const { data: trees } = await serviceClient
     .from("research_trees")
     .select("arxiv_id, root_title, tree_data")
-    .in("arxiv_id", treeIds);
+    .in("arxiv_id", treeIds)
+    .eq("user_id", authData.user.id);
 
   return NextResponse.json({ trees: trees || [] });
 }

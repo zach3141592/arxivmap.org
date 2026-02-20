@@ -23,6 +23,7 @@ export default async function TreePage({
     .from("research_trees")
     .select("arxiv_id, root_title, tree_data")
     .eq("arxiv_id", rootPaperId)
+    .eq("user_id", authData.user.id)
     .single();
 
   if (!treeRow) {

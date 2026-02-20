@@ -24,11 +24,12 @@ export default async function PaperPage({
   // Service client bypasses RLS for cache reads
   const serviceClient = createServiceClient();
 
-  // Check cache for existing summary (read-only)
+  // Check cache for existing summary — scoped to this user
   const { data: cached } = await serviceClient
     .from("paper_summaries")
     .select("title, authors, abstract, summary")
     .eq("arxiv_id", paperId)
+    .eq("user_id", authData.user.id)
     .single();
 
   // If cached, use cached metadata; otherwise fetch from arxiv

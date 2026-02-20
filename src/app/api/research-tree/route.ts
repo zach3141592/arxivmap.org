@@ -24,12 +24,14 @@ export async function DELETE(request: NextRequest) {
   await serviceClient
     .from("research_tree_papers")
     .delete()
-    .eq("tree_arxiv_id", arxivId);
+    .eq("tree_arxiv_id", arxivId)
+    .eq("tree_user_id", authData.user.id);
 
   await serviceClient
     .from("research_trees")
     .delete()
-    .eq("arxiv_id", arxivId);
+    .eq("arxiv_id", arxivId)
+    .eq("user_id", authData.user.id);
 
   return NextResponse.json({ ok: true });
 }
@@ -55,7 +57,8 @@ export async function PATCH(request: NextRequest) {
   await serviceClient
     .from("research_trees")
     .update({ root_title })
-    .eq("arxiv_id", id);
+    .eq("arxiv_id", id)
+    .eq("user_id", authData.user.id);
 
   return NextResponse.json({ ok: true });
 }
@@ -78,11 +81,12 @@ export async function POST(request: Request) {
 
   const serviceClient = createServiceClient();
 
-  // Cache check
+  // Cache check — scoped to this user
   const { data: cached } = await serviceClient
     .from("research_trees")
     .select("tree_data")
     .eq("arxiv_id", paperId)
+    .eq("user_id", authData.user.id)
     .single();
 
   if (cached) {
@@ -135,6 +139,7 @@ export async function POST(request: Request) {
           .from("research_trees")
           .upsert({
             arxiv_id: paperId,
+            user_id: authData.user.id,
             tree_data: tree,
             root_title: rootTitle,
             node_count: nodeCount,
@@ -144,10 +149,12 @@ export async function POST(request: Request) {
         await serviceClient
           .from("research_tree_papers")
           .delete()
-          .eq("tree_arxiv_id", paperId);
+          .eq("tree_arxiv_id", paperId)
+          .eq("tree_user_id", authData.user.id);
 
         const junctionRows = tree.nodes.map((n: { id: string }) => ({
           tree_arxiv_id: paperId,
+          tree_user_id: authData.user.id,
           paper_arxiv_id: n.id,
         }));
         await serviceClient

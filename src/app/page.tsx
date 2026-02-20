@@ -27,17 +27,19 @@ export default async function Home({
     );
   }
 
-  // Fetch recent summaries and trees for the dashboard
+  // Fetch recent summaries and trees for this user
   const serviceClient = createServiceClient();
   const { data: recentPapers } = await serviceClient
     .from("paper_summaries")
     .select("arxiv_id, title, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   const { data: recentTrees } = await serviceClient
     .from("research_trees")
     .select("arxiv_id, root_title, node_count, tree_data, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 

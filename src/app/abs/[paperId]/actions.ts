@@ -35,11 +35,12 @@ export async function summarizePaperAction(
 
   const serviceClient = createServiceClient();
 
-  // Check cache first
+  // Check cache first — scoped to this user
   const { data: cached } = await serviceClient
     .from("paper_summaries")
     .select("summary")
     .eq("arxiv_id", paperId)
+    .eq("user_id", authData.user.id)
     .single();
 
   if (cached?.summary) {
@@ -62,9 +63,10 @@ export async function summarizePaperAction(
     return { status: "error", message: `Summarization failed: ${msg}` };
   }
 
-  // Cache in Supabase
+  // Cache in Supabase — scoped to this user
   await serviceClient.from("paper_summaries").upsert({
     arxiv_id: paperId,
+    user_id: authData.user.id,
     title: paper.title,
     authors: paper.authors,
     abstract: paper.abstract,
