@@ -56,8 +56,10 @@ export async function summarizePaperAction(
   let summary: string;
   try {
     summary = await summarizePaper(paper.abstract);
-  } catch {
-    return { status: "error", message: "Summarization failed. Please try again." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Summarization failed:", msg);
+    return { status: "error", message: `Summarization failed: ${msg}` };
   }
 
   // Cache in Supabase
