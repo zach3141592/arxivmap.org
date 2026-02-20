@@ -9,7 +9,19 @@ export async function summarizePaper(abstract: string): Promise<string> {
     messages: [
       {
         role: "user",
-        content: `You are a research paper summarizer. Given the following academic paper abstract, write a clear and accessible 2-3 paragraph summary that explains the key contributions, methodology, and findings. Write for a technical audience but aim for clarity.
+        content: `You are a research paper summarizer. Given the following academic paper abstract, produce a structured summary using the exact format below. Use markdown headings (##) and bullet points (-). Be concise — each bullet should be one sentence. Write for a technical audience but aim for clarity.
+
+## Key Contributions
+- ...
+- ...
+
+## Methodology
+- ...
+- ...
+
+## Findings
+- ...
+- ...
 
 Abstract:
 ${abstract}`,
