@@ -100,6 +100,9 @@ function truncateText(text: string, maxLen: number): string {
   return text.slice(0, maxLen - 1) + "\u2026";
 }
 
+const DETAIL_CARD_HEIGHT = 160;
+const DETAIL_CARD_GAP = 8;
+
 export function TreeVisualization({
   tree,
   highlightPaperId,
@@ -119,11 +122,19 @@ export function TreeVisualization({
     return map;
   }, [layouts]);
 
-  // Calculate SVG dimensions
+  // Calculate SVG dimensions — reserve space for the detail card near the selected node
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
-  const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
+  const baseMaxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
+
+  // If a node is selected, the card appears below it — ensure SVG is tall enough
+  let svgHeight = baseMaxY;
+  const selectedLayout = selectedNode ? layoutMap.get(selectedNode.id) : null;
+  if (selectedLayout) {
+    const cardBottom =
+      selectedLayout.y + NODE_HEIGHT + DETAIL_CARD_GAP + DETAIL_CARD_HEIGHT + PADDING;
+    svgHeight = Math.max(svgHeight, cardBottom);
+  }
   const svgWidth = Math.max(maxX, 360);
-  const svgHeight = maxY + (selectedNode ? 200 : 0);
 
   return (
     <div className="p-4">
@@ -228,76 +239,83 @@ export function TreeVisualization({
             </g>
           );
         })}
-      </svg>
 
-      {/* Detail card */}
-      {selectedNode && (
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-bold leading-snug text-gray-900">
-              {selectedNode.title}
-            </h3>
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="shrink-0 text-gray-400 hover:text-gray-600"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          {selectedNode.authors && (
-            <p className="mt-1 text-xs text-gray-400">{selectedNode.authors}</p>
-          )}
-          <p className="mt-2 text-xs leading-relaxed text-gray-500">
-            {selectedNode.relevance}
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <span
-              className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
-              style={{
-                backgroundColor:
-                  RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
-              }}
-            >
-              {selectedNode.relationship}
-            </span>
-            {selectedNode.year > 0 && (
-              <span className="text-xs text-gray-400">
-                {selectedNode.year}
-              </span>
-            )}
-          </div>
-          <a
-            href={`/abs/${selectedNode.id}`}
-            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-black hover:underline"
+        {/* Detail card rendered as foreignObject near the selected node */}
+        {selectedNode && selectedLayout && (
+          <foreignObject
+            x={selectedLayout.x}
+            y={selectedLayout.y + NODE_HEIGHT + DETAIL_CARD_GAP}
+            width={NODE_WIDTH}
+            height={DETAIL_CARD_HEIGHT}
           >
-            View paper
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </a>
-        </div>
-      )}
+            <div className="h-full overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-xs font-bold leading-snug text-gray-900">
+                  {selectedNode.title}
+                </h3>
+                <button
+                  onClick={() => setSelectedNode(null)}
+                  className="shrink-0 text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              {selectedNode.authors && (
+                <p className="mt-1 text-[10px] text-gray-400">{selectedNode.authors}</p>
+              )}
+              <p className="mt-1.5 text-[10px] leading-relaxed text-gray-500">
+                {selectedNode.relevance}
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+                  style={{
+                    backgroundColor:
+                      RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
+                  }}
+                >
+                  {selectedNode.relationship}
+                </span>
+                {selectedNode.year > 0 && (
+                  <span className="text-[10px] text-gray-400">
+                    {selectedNode.year}
+                  </span>
+                )}
+                <a
+                  href={`/abs/${selectedNode.id}`}
+                  className="ml-auto inline-flex items-center gap-0.5 text-[10px] font-medium text-black hover:underline"
+                >
+                  View paper
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </foreignObject>
+        )}
+      </svg>
     </div>
   );
 }
