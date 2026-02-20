@@ -31,7 +31,7 @@ export function TreePageContent({
   const chatContext = buildTreeContext(tree, rootTitle);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex items-center gap-4 border-b border-gray-200 px-6 py-4">
         <a
           href="/"
@@ -61,7 +61,7 @@ export function TreePageContent({
           </div>
         </main>
 
-        <aside className="hidden h-[calc(100vh-57px)] w-[400px] shrink-0 border-l border-gray-200 lg:block">
+        <aside className="hidden h-full w-[400px] shrink-0 border-l border-gray-200 lg:block">
           <ChatPanel abstract={chatContext} />
         </aside>
       </div>
