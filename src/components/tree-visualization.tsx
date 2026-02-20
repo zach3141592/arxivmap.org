@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import type { ResearchTree, TreeNode } from "@/lib/research-tree";
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -11,11 +11,11 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   successor: "#06b6d4",
 };
 
-const NODE_WIDTH = 320;
-const NODE_HEIGHT = 60;
-const ROW_GAP = 80;
-const COL_GAP = 24;
-const PADDING = 24;
+const NODE_WIDTH = 300;
+const NODE_HEIGHT = 56;
+const ROW_GAP = 120;
+const COL_GAP = 48;
+const PADDING = 32;
 
 interface LayoutNode {
   node: TreeNode;
@@ -27,7 +27,6 @@ function layoutNodes(tree: ResearchTree): LayoutNode[] {
   const root = tree.nodes.find((n) => n.id === tree.root);
   const others = tree.nodes.filter((n) => n.id !== tree.root);
 
-  // Group by generation: foundational papers above, extensions/successors below
   const above: TreeNode[] = [];
   const below: TreeNode[] = [];
 
@@ -39,13 +38,11 @@ function layoutNodes(tree: ResearchTree): LayoutNode[] {
     }
   }
 
-  // Sort by year within each group
   above.sort((a, b) => a.year - b.year);
   below.sort((a, b) => a.year - b.year);
 
   const layouts: LayoutNode[] = [];
 
-  // Layout above rows (foundational papers)
   const aboveRows = chunkNodes(above, 2);
   for (let rowIdx = 0; rowIdx < aboveRows.length; rowIdx++) {
     const row = aboveRows[rowIdx];
@@ -53,20 +50,11 @@ function layoutNodes(tree: ResearchTree): LayoutNode[] {
     layoutRow(row, rowY, layouts);
   }
 
-  // Root row
-  const rootY =
-    PADDING + aboveRows.length * (NODE_HEIGHT + ROW_GAP);
+  const rootY = PADDING + aboveRows.length * (NODE_HEIGHT + ROW_GAP);
   if (root) {
-    layouts.push({
-      node: root,
-      x: PADDING + (NODE_WIDTH + COL_GAP) * 0.5 - NODE_WIDTH / 2 + NODE_WIDTH / 2,
-      y: rootY,
-    });
-    // Center root
-    layouts[layouts.length - 1].x = PADDING;
+    layouts.push({ node: root, x: PADDING, y: rootY });
   }
 
-  // Layout below rows (extensions, alternatives, etc.)
   const belowRows = chunkNodes(below, 2);
   for (let rowIdx = 0; rowIdx < belowRows.length; rowIdx++) {
     const row = belowRows[rowIdx];
@@ -100,9 +88,6 @@ function truncateText(text: string, maxLen: number): string {
   return text.slice(0, maxLen - 1) + "\u2026";
 }
 
-const DETAIL_CARD_HEIGHT = 160;
-const DETAIL_CARD_GAP = 8;
-
 export function TreeVisualization({
   tree,
   highlightPaperId,
@@ -111,6 +96,9 @@ export function TreeVisualization({
   highlightPaperId?: string;
 }) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const layouts = useMemo(() => layoutNodes(tree), [tree]);
 
@@ -122,23 +110,47 @@ export function TreeVisualization({
     return map;
   }, [layouts]);
 
-  // Calculate SVG dimensions — reserve space for the detail card near the selected node
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
-  const baseMaxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
-
-  // If a node is selected, the card appears below it — ensure SVG is tall enough
-  let svgHeight = baseMaxY;
-  const selectedLayout = selectedNode ? layoutMap.get(selectedNode.id) : null;
-  if (selectedLayout) {
-    const cardBottom =
-      selectedLayout.y + NODE_HEIGHT + DETAIL_CARD_GAP + DETAIL_CARD_HEIGHT + PADDING;
-    svgHeight = Math.max(svgHeight, cardBottom);
-  }
+  const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
   const svgWidth = Math.max(maxX, 360);
+  const svgHeight = maxY;
+
+  // Position the popover in DOM coordinates relative to the container
+  const updatePopoverPos = useCallback(() => {
+    if (!selectedNode || !svgRef.current || !containerRef.current) {
+      setPopoverPos(null);
+      return;
+    }
+    const layout = layoutMap.get(selectedNode.id);
+    if (!layout) { setPopoverPos(null); return; }
+
+    const svgEl = svgRef.current;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const svgRect = svgEl.getBoundingClientRect();
+
+    // Scale factor: rendered size vs viewBox
+    const scale = svgRect.width / svgWidth;
+
+    const top = svgRect.top - containerRect.top + (layout.y + NODE_HEIGHT + 8) * scale;
+    const left = svgRect.left - containerRect.left + layout.x * scale;
+
+    setPopoverPos({ top, left });
+  }, [selectedNode, layoutMap, svgWidth]);
+
+  useEffect(() => {
+    updatePopoverPos();
+  }, [updatePopoverPos]);
+
+  // Recalculate on resize
+  useEffect(() => {
+    window.addEventListener("resize", updatePopoverPos);
+    return () => window.removeEventListener("resize", updatePopoverPos);
+  }, [updatePopoverPos]);
 
   return (
-    <div className="p-4">
+    <div ref={containerRef} className="relative p-4">
       <svg
+        ref={svgRef}
         width="100%"
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="overflow-visible"
@@ -154,24 +166,38 @@ export function TreeVisualization({
           const x2 = target.x + NODE_WIDTH / 2;
           const y2 = target.y;
 
-          // Quadratic Bezier
           const cy = (y1 + y2) / 2;
+
+          // Place label at the midpoint of the curve, offset slightly so it doesn't sit on the line
+          const labelX = (x1 + x2) / 2 + (x1 === x2 ? 0 : 0);
+          const labelY = cy + 2;
 
           return (
             <g key={`edge-${i}`}>
               <path
                 d={`M ${x1} ${y1} Q ${x1} ${cy}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#d1d5db"
+                stroke="#e5e7eb"
                 strokeWidth="1.5"
               />
-              {/* Edge label */}
+              {/* Label background pill */}
+              <rect
+                x={labelX - edge.label.length * 3 - 6}
+                y={labelY - 8}
+                width={edge.label.length * 6 + 12}
+                height={16}
+                rx={8}
+                fill="white"
+                stroke="#f3f4f6"
+                strokeWidth="1"
+              />
               <text
-                x={(x1 + x2) / 2}
-                y={cy}
+                x={labelX}
+                y={labelY + 3}
                 textAnchor="middle"
-                className="fill-gray-400"
-                fontSize="9"
+                fill="#9ca3af"
+                fontSize="11"
+                fontWeight="500"
               >
                 {edge.label}
               </text>
@@ -190,12 +216,11 @@ export function TreeVisualization({
           return (
             <g
               key={node.id}
-              onClick={() =>
-                setSelectedNode(isSelected ? null : node)
-              }
+              onClick={() => {
+                setSelectedNode(isSelected ? null : node);
+              }}
               className="cursor-pointer"
             >
-              {/* Card background */}
               <rect
                 x={x}
                 y={y}
@@ -218,18 +243,18 @@ export function TreeVisualization({
               {/* Title */}
               <text
                 x={x + 14}
-                y={y + 24}
+                y={y + 23}
                 fontSize="12"
                 fontWeight="600"
                 fill={isRoot ? "#fff" : "#111"}
                 className="select-none"
               >
-                {truncateText(node.title, 38)}
+                {truncateText(node.title, 36)}
               </text>
               {/* Year */}
               <text
                 x={x + 14}
-                y={y + 44}
+                y={y + 42}
                 fontSize="11"
                 fill={isRoot ? "#a1a1aa" : "#9ca3af"}
                 className="select-none"
@@ -239,83 +264,77 @@ export function TreeVisualization({
             </g>
           );
         })}
-
-        {/* Detail card rendered as foreignObject near the selected node */}
-        {selectedNode && selectedLayout && (
-          <foreignObject
-            x={selectedLayout.x}
-            y={selectedLayout.y + NODE_HEIGHT + DETAIL_CARD_GAP}
-            width={NODE_WIDTH}
-            height={DETAIL_CARD_HEIGHT}
-          >
-            <div className="h-full overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-xs font-bold leading-snug text-gray-900">
-                  {selectedNode.title}
-                </h3>
-                <button
-                  onClick={() => setSelectedNode(null)}
-                  className="shrink-0 text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              {selectedNode.authors && (
-                <p className="mt-1 text-[10px] text-gray-400">{selectedNode.authors}</p>
-              )}
-              <p className="mt-1.5 text-[10px] leading-relaxed text-gray-500">
-                {selectedNode.relevance}
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
-                  style={{
-                    backgroundColor:
-                      RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
-                  }}
-                >
-                  {selectedNode.relationship}
-                </span>
-                {selectedNode.year > 0 && (
-                  <span className="text-[10px] text-gray-400">
-                    {selectedNode.year}
-                  </span>
-                )}
-                <a
-                  href={`/abs/${selectedNode.id}`}
-                  className="ml-auto inline-flex items-center gap-0.5 text-[10px] font-medium text-black hover:underline"
-                >
-                  View paper
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </foreignObject>
-        )}
       </svg>
+
+      {/* Detail popover — rendered as HTML, auto-sizes to content */}
+      {selectedNode && popoverPos && (
+        <div
+          className="absolute z-10 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+          style={{ top: popoverPos.top, left: popoverPos.left }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-sm font-bold leading-snug text-gray-900">
+              {selectedNode.title}
+            </h3>
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="shrink-0 text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          {selectedNode.authors && (
+            <p className="mt-1 text-xs text-gray-400">{selectedNode.authors}</p>
+          )}
+          <p className="mt-2 text-xs leading-relaxed text-gray-500">
+            {selectedNode.relevance}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+              style={{
+                backgroundColor:
+                  RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
+              }}
+            >
+              {selectedNode.relationship}
+            </span>
+            {selectedNode.year > 0 && (
+              <span className="text-xs text-gray-400">{selectedNode.year}</span>
+            )}
+            <a
+              href={`/abs/${selectedNode.id}`}
+              className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
+            >
+              View paper
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
