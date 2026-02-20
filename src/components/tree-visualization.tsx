@@ -186,42 +186,6 @@ export function TreeVisualization({
           })}
         </svg>
 
-        {/* Edge labels as HTML — rendered above edges, below nodes won't matter
-            because they are positioned in the gap between rows */}
-        {tree.edges.map((edge, i) => {
-          const source = layoutMap.get(edge.source);
-          const target = layoutMap.get(edge.target);
-          if (!source || !target) return null;
-
-          const x1 = source.x + NODE_WIDTH / 2;
-          const y1 = source.y + NODE_HEIGHT;
-          const x2 = target.x + NODE_WIDTH / 2;
-          const y2 = target.y;
-
-          // Quadratic bezier: P0=(x1,y1), CP=(x1, (y1+y2)/2), P1=(x2,y2)
-          // Point on curve at t=0.5: B(t) = (1-t)^2*P0 + 2*(1-t)*t*CP + t^2*P1
-          const cpX = x1;
-          const cpY = (y1 + y2) / 2;
-          const t = 0.5;
-          const labelX = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cpX + t * t * x2;
-          const labelY = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cpY + t * t * y2;
-
-          return (
-            <div
-              key={`label-${i}`}
-              className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500"
-              style={{
-                left: labelX,
-                top: labelY,
-                transform: "translate(-50%, -50%)",
-                zIndex: 5,
-              }}
-            >
-              {edge.label}
-            </div>
-          );
-        })}
-
         {/* Node cards as HTML divs */}
         {layouts.map((layout) => {
           const { node, x, y } = layout;
@@ -270,6 +234,39 @@ export function TreeVisualization({
                   {node.year > 0 ? node.year : ""}
                 </p>
               </div>
+            </div>
+          );
+        })}
+
+        {/* Edge labels — rendered after nodes so they always appear on top */}
+        {tree.edges.map((edge, i) => {
+          const source = layoutMap.get(edge.source);
+          const target = layoutMap.get(edge.target);
+          if (!source || !target) return null;
+
+          const x1 = source.x + NODE_WIDTH / 2;
+          const y1 = source.y + NODE_HEIGHT;
+          const x2 = target.x + NODE_WIDTH / 2;
+          const y2 = target.y;
+
+          const cpX = x1;
+          const cpY = (y1 + y2) / 2;
+          const t = 0.5;
+          const labelX = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cpX + t * t * x2;
+          const labelY = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cpY + t * t * y2;
+
+          return (
+            <div
+              key={`label-${i}`}
+              className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
+              style={{
+                left: labelX,
+                top: labelY,
+                transform: "translate(-50%, -50%)",
+                zIndex: 15,
+              }}
+            >
+              {edge.label}
             </div>
           );
         })}
