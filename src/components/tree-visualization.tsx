@@ -155,7 +155,7 @@ export function TreeVisualization({
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="overflow-visible"
       >
-        {/* Edges */}
+        {/* Edge lines (rendered first, behind everything) */}
         {tree.edges.map((edge, i) => {
           const source = layoutMap.get(edge.source);
           const target = layoutMap.get(edge.target);
@@ -168,44 +168,18 @@ export function TreeVisualization({
 
           const cy = (y1 + y2) / 2;
 
-          // Place label at the midpoint of the curve, offset slightly so it doesn't sit on the line
-          const labelX = (x1 + x2) / 2 + (x1 === x2 ? 0 : 0);
-          const labelY = cy + 2;
-
           return (
-            <g key={`edge-${i}`}>
-              <path
-                d={`M ${x1} ${y1} Q ${x1} ${cy}, ${x2} ${y2}`}
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth="1.5"
-              />
-              {/* Label background pill */}
-              <rect
-                x={labelX - edge.label.length * 3 - 6}
-                y={labelY - 8}
-                width={edge.label.length * 6 + 12}
-                height={16}
-                rx={8}
-                fill="white"
-                stroke="#f3f4f6"
-                strokeWidth="1"
-              />
-              <text
-                x={labelX}
-                y={labelY + 3}
-                textAnchor="middle"
-                fill="#9ca3af"
-                fontSize="11"
-                fontWeight="500"
-              >
-                {edge.label}
-              </text>
-            </g>
+            <path
+              key={`edge-line-${i}`}
+              d={`M ${x1} ${y1} Q ${x1} ${cy}, ${x2} ${y2}`}
+              fill="none"
+              stroke="#e5e7eb"
+              strokeWidth="1.5"
+            />
           );
         })}
 
-        {/* Nodes */}
+        {/* Nodes (middle layer) */}
         {layouts.map((layout) => {
           const { node, x, y } = layout;
           const isRoot = node.id === tree.root;
@@ -260,6 +234,51 @@ export function TreeVisualization({
                 className="select-none"
               >
                 {node.year > 0 ? node.year : ""}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Edge labels (rendered last, on top of everything) */}
+        {tree.edges.map((edge, i) => {
+          const source = layoutMap.get(edge.source);
+          const target = layoutMap.get(edge.target);
+          if (!source || !target) return null;
+
+          const x1 = source.x + NODE_WIDTH / 2;
+          const y1 = source.y + NODE_HEIGHT;
+          const x2 = target.x + NODE_WIDTH / 2;
+          const y2 = target.y;
+
+          // True midpoint of the quadratic bezier: Q control point is (x1, cy)
+          // B(0.5) = 0.25*P0 + 0.5*CP + 0.25*P1
+          const cpY = (y1 + y2) / 2;
+          const labelX = 0.25 * x1 + 0.5 * x1 + 0.25 * x2;
+          const labelY = 0.25 * y1 + 0.5 * cpY + 0.25 * y2;
+
+          const pillWidth = edge.label.length * 6.5 + 16;
+
+          return (
+            <g key={`edge-label-${i}`}>
+              <rect
+                x={labelX - pillWidth / 2}
+                y={labelY - 10}
+                width={pillWidth}
+                height={20}
+                rx={10}
+                fill="white"
+                stroke="#e5e7eb"
+                strokeWidth="1"
+              />
+              <text
+                x={labelX}
+                y={labelY + 4}
+                textAnchor="middle"
+                fill="#6b7280"
+                fontSize="11"
+                fontWeight="500"
+              >
+                {edge.label}
               </text>
             </g>
           );
