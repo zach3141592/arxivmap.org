@@ -7,15 +7,10 @@ export async function POST(request: Request) {
   const returnTo = formData.get("returnTo") as string | null;
   const supabase = await createClient();
 
-  const callbackUrl = new URL(`${origin}/auth/callback`);
-  if (returnTo) {
-    callbackUrl.searchParams.set("returnTo", returnTo);
-  }
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: callbackUrl.toString(),
+      redirectTo: `${origin}/auth/callback`,
     },
   });
 
@@ -23,5 +18,17 @@ export async function POST(request: Request) {
     return NextResponse.redirect(`${origin}?error=auth`);
   }
 
-  return NextResponse.redirect(data.url, { status: 302 });
+  const response = NextResponse.redirect(data.url, { status: 302 });
+
+  // Store returnTo in a cookie so it survives the OAuth redirect
+  if (returnTo && returnTo.startsWith("/")) {
+    response.cookies.set("returnTo", returnTo, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 600, // 10 minutes
+    });
+  }
+
+  return response;
 }

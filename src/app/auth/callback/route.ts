@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -9,11 +10,19 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const returnTo = searchParams.get("returnTo");
-      if (returnTo && returnTo.startsWith("/")) {
-        return NextResponse.redirect(`${origin}${returnTo}`);
-      }
-      return NextResponse.redirect(origin);
+      const cookieStore = await cookies();
+      const returnTo = cookieStore.get("returnTo")?.value;
+
+      const response = NextResponse.redirect(
+        returnTo && returnTo.startsWith("/")
+          ? `${origin}${returnTo}`
+          : origin
+      );
+
+      // Clear the cookie
+      response.cookies.delete("returnTo");
+
+      return response;
     }
   }
 
