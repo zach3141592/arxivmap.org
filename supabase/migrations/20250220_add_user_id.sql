@@ -1,8 +1,12 @@
+-- Clear old unscoped data (cached summaries/trees will regenerate)
+DELETE FROM research_tree_papers;
+DELETE FROM research_trees;
+DELETE FROM paper_summaries;
+
 -- Add user_id to paper_summaries
 ALTER TABLE paper_summaries
   ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 
--- Drop old primary key and create composite
 ALTER TABLE paper_summaries
   DROP CONSTRAINT IF EXISTS paper_summaries_pkey;
 ALTER TABLE paper_summaries
@@ -21,8 +25,7 @@ ALTER TABLE research_trees
 
 CREATE INDEX IF NOT EXISTS idx_research_trees_user ON research_trees(user_id);
 
--- Update junction table FK to match new composite key
--- Drop old FK and recreate
+-- Update junction table
 ALTER TABLE research_tree_papers
   DROP CONSTRAINT IF EXISTS research_tree_papers_tree_arxiv_id_fkey;
 
