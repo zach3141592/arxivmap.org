@@ -14,6 +14,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // If an auth code lands at root, redirect to the callback route
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname === "/") {
+    const callbackUrl = new URL("/auth/callback", request.url);
+    callbackUrl.searchParams.set("code", code);
+    return NextResponse.redirect(callbackUrl);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
