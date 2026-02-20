@@ -1,6 +1,11 @@
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
+  const { returnTo } = await searchParams;
   let user = null;
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -26,16 +31,17 @@ export default async function Home() {
             </form>
           </div>
         ) : (
-          <SignInButton />
+          <SignInButton returnTo={returnTo} />
         )}
       </main>
     </div>
   );
 }
 
-function SignInButton() {
+function SignInButton({ returnTo }: { returnTo?: string }) {
   return (
     <form action="/auth/login" method="POST">
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <button
         type="submit"
         className="border border-black px-6 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"

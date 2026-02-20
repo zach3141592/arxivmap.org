@@ -3,12 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const { origin } = new URL(request.url);
+  const formData = await request.formData();
+  const returnTo = formData.get("returnTo") as string | null;
   const supabase = await createClient();
+
+  const callbackUrl = new URL(`${origin}/auth/callback`);
+  if (returnTo) {
+    callbackUrl.searchParams.set("returnTo", returnTo);
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: callbackUrl.toString(),
     },
   });
 

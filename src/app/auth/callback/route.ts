@@ -9,6 +9,10 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const returnTo = searchParams.get("returnTo");
+      if (returnTo && returnTo.startsWith("/")) {
+        return NextResponse.redirect(`${origin}${returnTo}`);
+      }
       return NextResponse.redirect(origin);
     }
   }
