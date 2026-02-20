@@ -11,10 +11,10 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   successor: "#06b6d4",
 };
 
-const NODE_WIDTH = 280;
-const NODE_HEIGHT = 56;
-const ROW_GAP = 160;
-const COL_GAP = 60;
+const NODE_WIDTH = 320;
+const NODE_HEIGHT = 60;
+const ROW_GAP = 200;
+const COL_GAP = 160;
 const PADDING = 80;
 
 interface LayoutNode {
@@ -256,7 +256,7 @@ export function TreeVisualization({
                   className="text-xs font-semibold leading-snug"
                   style={{ color: isRoot ? "#fff" : "#111" }}
                 >
-                  {truncateText(node.title, 36)}
+                  {truncateText(node.title, 40)}
                 </p>
                 <p
                   className="mt-0.5 text-[11px]"
