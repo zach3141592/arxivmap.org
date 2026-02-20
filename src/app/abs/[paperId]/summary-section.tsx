@@ -22,8 +22,10 @@ function RenderedSummary({ text }: { text: string }) {
     const trimmed = line.trim();
     if (trimmed.startsWith("## ")) {
       sections.push({ heading: trimmed.slice(3), bullets: [] });
-    } else if (trimmed.startsWith("- ") && sections.length > 0) {
-      sections[sections.length - 1].bullets.push(trimmed.slice(2));
+    } else if (sections.length > 0 && trimmed.length > 0) {
+      // Strip leading bullet markers (-, *, or numbered like "1.")
+      const content = trimmed.replace(/^(?:[-*]\s+|\d+\.\s+)/, "");
+      sections[sections.length - 1].bullets.push(content);
     }
   }
 
