@@ -253,10 +253,43 @@ export function TreeVisualization({
           const y2 = target.y;
 
           // Cubic bezier midpoint: C(x1,midY, x2,midY)
-          // B(0.5) = 0.125*P0 + 0.375*CP1 + 0.375*CP2 + 0.125*P1
           const midY = (y1 + y2) / 2;
-          const labelX = 0.125 * x1 + 0.375 * x1 + 0.375 * x2 + 0.125 * x2;
-          const labelY = 0.125 * y1 + 0.375 * midY + 0.375 * midY + 0.125 * y2;
+          let labelX = (x1 + x2) / 2;
+          let labelY = midY;
+
+          // Estimate label size (approx 7px per char + 20px padding, 22px tall)
+          const estW = edge.label.length * 7 + 20;
+          const estH = 22;
+          const labelLeft = labelX - estW / 2;
+          const labelRight = labelX + estW / 2;
+          const labelTop = labelY - estH / 2;
+          const labelBottom = labelY + estH / 2;
+          const margin = 6;
+
+          // Check overlap with every node and nudge if needed
+          for (const l of layouts) {
+            const nLeft = l.x - margin;
+            const nRight = l.x + NODE_WIDTH + margin;
+            const nTop = l.y - margin;
+            const nBottom = l.y + NODE_HEIGHT + margin;
+
+            const overlapsX = labelRight > nLeft && labelLeft < nRight;
+            const overlapsY = labelBottom > nTop && labelTop < nBottom;
+
+            if (overlapsX && overlapsY) {
+              // Nudge horizontally: push label to whichever side of the node is closer
+              const pushRight = nRight + estW / 2 + margin;
+              const pushLeft = nLeft - estW / 2 - margin;
+              if (Math.abs(pushRight - labelX) < Math.abs(pushLeft - labelX)) {
+                labelX = pushRight;
+              } else {
+                labelX = pushLeft;
+              }
+            }
+          }
+
+          // Compute the point on the curve closest to the label for visual connection
+          // The curve passes through (labelX_original, midY) so the label is always near the line
 
           return (
             <div
