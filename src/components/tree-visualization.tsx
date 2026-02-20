@@ -11,10 +11,10 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   successor: "#06b6d4",
 };
 
-const NODE_WIDTH = 300;
+const NODE_WIDTH = 280;
 const NODE_HEIGHT = 56;
-const ROW_GAP = 120;
-const COL_GAP = 48;
+const ROW_GAP = 160;
+const COL_GAP = 60;
 const PADDING = 32;
 
 interface LayoutNode {
@@ -115,7 +115,6 @@ export function TreeVisualization({
   const svgWidth = Math.max(maxX, 360);
   const svgHeight = maxY;
 
-  // Position the popover in DOM coordinates relative to the container
   const updatePopoverPos = useCallback(() => {
     if (!selectedNode || !svgRef.current || !containerRef.current) {
       setPopoverPos(null);
@@ -124,11 +123,8 @@ export function TreeVisualization({
     const layout = layoutMap.get(selectedNode.id);
     if (!layout) { setPopoverPos(null); return; }
 
-    const svgEl = svgRef.current;
     const containerRect = containerRef.current.getBoundingClientRect();
-    const svgRect = svgEl.getBoundingClientRect();
-
-    // Scale factor: rendered size vs viewBox
+    const svgRect = svgRef.current.getBoundingClientRect();
     const scale = svgRect.width / svgWidth;
 
     const top = svgRect.top - containerRect.top + (layout.y + NODE_HEIGHT + 8) * scale;
@@ -141,7 +137,6 @@ export function TreeVisualization({
     updatePopoverPos();
   }, [updatePopoverPos]);
 
-  // Recalculate on resize
   useEffect(() => {
     window.addEventListener("resize", updatePopoverPos);
     return () => window.removeEventListener("resize", updatePopoverPos);
@@ -155,7 +150,8 @@ export function TreeVisualization({
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="overflow-visible"
       >
-        {/* Edge lines (rendered first, behind everything) */}
+        {/* Edges: lines + labels together. Labels sit at the vertical midpoint of the gap
+            between source bottom and target top — guaranteed to be in open space. */}
         {tree.edges.map((edge, i) => {
           const source = layoutMap.get(edge.source);
           const target = layoutMap.get(edge.target);
@@ -166,100 +162,23 @@ export function TreeVisualization({
           const x2 = target.x + NODE_WIDTH / 2;
           const y2 = target.y;
 
-          const cy = (y1 + y2) / 2;
-
-          return (
-            <path
-              key={`edge-line-${i}`}
-              d={`M ${x1} ${y1} Q ${x1} ${cy}, ${x2} ${y2}`}
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth="1.5"
-            />
-          );
-        })}
-
-        {/* Nodes (middle layer) */}
-        {layouts.map((layout) => {
-          const { node, x, y } = layout;
-          const isRoot = node.id === tree.root;
-          const isSelected = selectedNode?.id === node.id;
-          const isHighlighted = highlightPaperId === node.id;
-          const color = RELATIONSHIP_COLORS[node.relationship] ?? "#6b7280";
-
-          return (
-            <g
-              key={node.id}
-              onClick={() => {
-                setSelectedNode(isSelected ? null : node);
-              }}
-              className="cursor-pointer"
-            >
-              <rect
-                x={x}
-                y={y}
-                width={NODE_WIDTH}
-                height={NODE_HEIGHT}
-                rx={8}
-                fill={isRoot ? "#000" : "#fff"}
-                stroke={isHighlighted ? "#3b82f6" : isSelected ? "#000" : "#e5e7eb"}
-                strokeWidth={isHighlighted ? 3 : isSelected ? 2 : 1}
-              />
-              {/* Relationship color bar */}
-              <rect
-                x={x}
-                y={y}
-                width={4}
-                height={NODE_HEIGHT}
-                rx={2}
-                fill={color}
-              />
-              {/* Title */}
-              <text
-                x={x + 14}
-                y={y + 23}
-                fontSize="12"
-                fontWeight="600"
-                fill={isRoot ? "#fff" : "#111"}
-                className="select-none"
-              >
-                {truncateText(node.title, 36)}
-              </text>
-              {/* Year */}
-              <text
-                x={x + 14}
-                y={y + 42}
-                fontSize="11"
-                fill={isRoot ? "#a1a1aa" : "#9ca3af"}
-                className="select-none"
-              >
-                {node.year > 0 ? node.year : ""}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Edge labels (rendered last, on top of everything) */}
-        {tree.edges.map((edge, i) => {
-          const source = layoutMap.get(edge.source);
-          const target = layoutMap.get(edge.target);
-          if (!source || !target) return null;
-
-          const x1 = source.x + NODE_WIDTH / 2;
-          const y1 = source.y + NODE_HEIGHT;
-          const x2 = target.x + NODE_WIDTH / 2;
-          const y2 = target.y;
-
-          // True midpoint of the quadratic bezier: Q control point is (x1, cy)
-          // B(0.5) = 0.25*P0 + 0.5*CP + 0.25*P1
+          // Control point for the bezier
           const cpY = (y1 + y2) / 2;
-          const labelX = 0.25 * x1 + 0.5 * x1 + 0.25 * x2;
-          const labelY = 0.25 * y1 + 0.5 * cpY + 0.25 * y2;
 
-          const pillWidth = edge.label.length * 6.5 + 16;
+          // Label in the vertical center of the gap, horizontally centered between endpoints
+          const labelX = (x1 + x2) / 2;
+          const labelY = (y1 + y2) / 2;
+
+          const pillWidth = edge.label.length * 6.5 + 20;
 
           return (
-            <g key={`edge-label-${i}`}>
+            <g key={`edge-${i}`}>
+              <path
+                d={`M ${x1} ${y1} Q ${x1} ${cpY}, ${x2} ${y2}`}
+                fill="none"
+                stroke="#d1d5db"
+                strokeWidth="1.5"
+              />
               <rect
                 x={labelX - pillWidth / 2}
                 y={labelY - 10}
@@ -283,9 +202,64 @@ export function TreeVisualization({
             </g>
           );
         })}
+
+        {/* Nodes */}
+        {layouts.map((layout) => {
+          const { node, x, y } = layout;
+          const isRoot = node.id === tree.root;
+          const isSelected = selectedNode?.id === node.id;
+          const isHighlighted = highlightPaperId === node.id;
+          const color = RELATIONSHIP_COLORS[node.relationship] ?? "#6b7280";
+
+          return (
+            <g
+              key={node.id}
+              onClick={() => setSelectedNode(isSelected ? null : node)}
+              className="cursor-pointer"
+            >
+              <rect
+                x={x}
+                y={y}
+                width={NODE_WIDTH}
+                height={NODE_HEIGHT}
+                rx={8}
+                fill={isRoot ? "#000" : "#fff"}
+                stroke={isHighlighted ? "#3b82f6" : isSelected ? "#000" : "#e5e7eb"}
+                strokeWidth={isHighlighted ? 3 : isSelected ? 2 : 1}
+              />
+              <rect
+                x={x}
+                y={y}
+                width={4}
+                height={NODE_HEIGHT}
+                rx={2}
+                fill={color}
+              />
+              <text
+                x={x + 14}
+                y={y + 23}
+                fontSize="12"
+                fontWeight="600"
+                fill={isRoot ? "#fff" : "#111"}
+                className="select-none"
+              >
+                {truncateText(node.title, 34)}
+              </text>
+              <text
+                x={x + 14}
+                y={y + 42}
+                fontSize="11"
+                fill={isRoot ? "#a1a1aa" : "#9ca3af"}
+                className="select-none"
+              >
+                {node.year > 0 ? node.year : ""}
+              </text>
+            </g>
+          );
+        })}
       </svg>
 
-      {/* Detail popover — rendered as HTML, auto-sizes to content */}
+      {/* Detail popover */}
       {selectedNode && popoverPos && (
         <div
           className="absolute z-10 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
