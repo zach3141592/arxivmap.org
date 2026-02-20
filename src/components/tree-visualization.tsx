@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import type { ResearchTree, TreeNode } from "@/lib/research-tree";
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -15,7 +15,7 @@ const NODE_WIDTH = 280;
 const NODE_HEIGHT = 56;
 const ROW_GAP = 160;
 const COL_GAP = 60;
-const PADDING = 32;
+const PADDING = 80;
 
 interface LayoutNode {
   node: TreeNode;
@@ -96,9 +96,11 @@ export function TreeVisualization({
   highlightPaperId?: string;
 }) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const panOrigin = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const layouts = useMemo(() => layoutNodes(tree), [tree]);
 
@@ -112,46 +114,80 @@ export function TreeVisualization({
 
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
   const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
-  const svgWidth = Math.max(maxX, 360);
-  const svgHeight = maxY;
 
-  const updatePopoverPos = useCallback(() => {
-    if (!selectedNode || !svgRef.current || !containerRef.current) {
-      setPopoverPos(null);
-      return;
-    }
-    const layout = layoutMap.get(selectedNode.id);
-    if (!layout) { setPopoverPos(null); return; }
+  // Pan handlers
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only pan on background clicks (not on nodes/detail card)
+    if ((e.target as HTMLElement).closest("[data-node], [data-detail]")) return;
+    isPanning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY };
+    panOrigin.current = { ...pan };
+    containerRef.current?.setPointerCapture(e.pointerId);
+  }, [pan]);
 
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const svgRect = svgRef.current.getBoundingClientRect();
-    const scale = svgRect.width / svgWidth;
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning.current) return;
+    setPan({
+      x: panOrigin.current.x + (e.clientX - panStart.current.x),
+      y: panOrigin.current.y + (e.clientY - panStart.current.y),
+    });
+  }, []);
 
-    const top = svgRect.top - containerRect.top + (layout.y + NODE_HEIGHT + 8) * scale;
-    const left = svgRect.left - containerRect.left + layout.x * scale;
+  const onPointerUp = useCallback(() => {
+    isPanning.current = false;
+  }, []);
 
-    setPopoverPos({ top, left });
-  }, [selectedNode, layoutMap, svgWidth]);
-
-  useEffect(() => {
-    updatePopoverPos();
-  }, [updatePopoverPos]);
-
-  useEffect(() => {
-    window.addEventListener("resize", updatePopoverPos);
-    return () => window.removeEventListener("resize", updatePopoverPos);
-  }, [updatePopoverPos]);
+  const selectedLayout = selectedNode ? layoutMap.get(selectedNode.id) : null;
 
   return (
-    <div ref={containerRef} className="relative p-4">
-      <svg
-        ref={svgRef}
-        width="100%"
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        className="overflow-visible"
+    <div
+      ref={containerRef}
+      className="h-full w-full overflow-hidden bg-gray-50/50"
+      style={{ cursor: isPanning.current ? "grabbing" : "grab" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
+      <div
+        className="relative"
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px)`,
+          width: maxX,
+          height: maxY,
+        }}
       >
-        {/* Edges: lines + labels together. Labels sit at the vertical midpoint of the gap
-            between source bottom and target top — guaranteed to be in open space. */}
+        {/* SVG for edges only */}
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          width={maxX}
+          height={maxY}
+        >
+          {tree.edges.map((edge, i) => {
+            const source = layoutMap.get(edge.source);
+            const target = layoutMap.get(edge.target);
+            if (!source || !target) return null;
+
+            const x1 = source.x + NODE_WIDTH / 2;
+            const y1 = source.y + NODE_HEIGHT;
+            const x2 = target.x + NODE_WIDTH / 2;
+            const y2 = target.y;
+            const cpY = (y1 + y2) / 2;
+
+            return (
+              <path
+                key={`edge-${i}`}
+                d={`M ${x1} ${y1} Q ${x1} ${cpY}, ${x2} ${y2}`}
+                fill="none"
+                stroke="#d1d5db"
+                strokeWidth="1.5"
+              />
+            );
+          })}
+        </svg>
+
+        {/* Edge labels as HTML — rendered above edges, below nodes won't matter
+            because they are positioned in the gap between rows */}
         {tree.edges.map((edge, i) => {
           const source = layoutMap.get(edge.source);
           const target = layoutMap.get(edge.target);
@@ -162,48 +198,26 @@ export function TreeVisualization({
           const x2 = target.x + NODE_WIDTH / 2;
           const y2 = target.y;
 
-          // Control point for the bezier
-          const cpY = (y1 + y2) / 2;
-
-          // Label in the vertical center of the gap, horizontally centered between endpoints
           const labelX = (x1 + x2) / 2;
           const labelY = (y1 + y2) / 2;
 
-          const pillWidth = edge.label.length * 6.5 + 20;
-
           return (
-            <g key={`edge-${i}`}>
-              <path
-                d={`M ${x1} ${y1} Q ${x1} ${cpY}, ${x2} ${y2}`}
-                fill="none"
-                stroke="#d1d5db"
-                strokeWidth="1.5"
-              />
-              <rect
-                x={labelX - pillWidth / 2}
-                y={labelY - 10}
-                width={pillWidth}
-                height={20}
-                rx={10}
-                fill="white"
-                stroke="#e5e7eb"
-                strokeWidth="1"
-              />
-              <text
-                x={labelX}
-                y={labelY + 4}
-                textAnchor="middle"
-                fill="#6b7280"
-                fontSize="11"
-                fontWeight="500"
-              >
-                {edge.label}
-              </text>
-            </g>
+            <div
+              key={`label-${i}`}
+              className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500"
+              style={{
+                left: labelX,
+                top: labelY,
+                transform: "translate(-50%, -50%)",
+                zIndex: 5,
+              }}
+            >
+              {edge.label}
+            </div>
           );
         })}
 
-        {/* Nodes */}
+        {/* Node cards as HTML divs */}
         {layouts.map((layout) => {
           const { node, x, y } = layout;
           const isRoot = node.id === tree.root;
@@ -212,122 +226,123 @@ export function TreeVisualization({
           const color = RELATIONSHIP_COLORS[node.relationship] ?? "#6b7280";
 
           return (
-            <g
+            <div
               key={node.id}
+              data-node
+              className="absolute cursor-pointer select-none rounded-lg border"
+              style={{
+                left: x,
+                top: y,
+                width: NODE_WIDTH,
+                height: NODE_HEIGHT,
+                backgroundColor: isRoot ? "#000" : "#fff",
+                borderColor: isHighlighted
+                  ? "#3b82f6"
+                  : isSelected
+                    ? "#000"
+                    : "#e5e7eb",
+                borderWidth: isHighlighted ? 3 : isSelected ? 2 : 1,
+                zIndex: 10,
+              }}
               onClick={() => setSelectedNode(isSelected ? null : node)}
-              className="cursor-pointer"
             >
-              <rect
-                x={x}
-                y={y}
-                width={NODE_WIDTH}
-                height={NODE_HEIGHT}
-                rx={8}
-                fill={isRoot ? "#000" : "#fff"}
-                stroke={isHighlighted ? "#3b82f6" : isSelected ? "#000" : "#e5e7eb"}
-                strokeWidth={isHighlighted ? 3 : isSelected ? 2 : 1}
+              {/* Color bar */}
+              <div
+                className="absolute left-0 top-0 h-full w-1 rounded-l"
+                style={{ backgroundColor: color }}
               />
-              <rect
-                x={x}
-                y={y}
-                width={4}
-                height={NODE_HEIGHT}
-                rx={2}
-                fill={color}
-              />
-              <text
-                x={x + 14}
-                y={y + 23}
-                fontSize="12"
-                fontWeight="600"
-                fill={isRoot ? "#fff" : "#111"}
-                className="select-none"
-              >
-                {truncateText(node.title, 34)}
-              </text>
-              <text
-                x={x + 14}
-                y={y + 42}
-                fontSize="11"
-                fill={isRoot ? "#a1a1aa" : "#9ca3af"}
-                className="select-none"
-              >
-                {node.year > 0 ? node.year : ""}
-              </text>
-            </g>
+              <div className="pl-3.5 pr-2 pt-2.5">
+                <p
+                  className="text-xs font-semibold leading-snug"
+                  style={{ color: isRoot ? "#fff" : "#111" }}
+                >
+                  {truncateText(node.title, 36)}
+                </p>
+                <p
+                  className="mt-0.5 text-[11px]"
+                  style={{ color: isRoot ? "#a1a1aa" : "#9ca3af" }}
+                >
+                  {node.year > 0 ? node.year : ""}
+                </p>
+              </div>
+            </div>
           );
         })}
-      </svg>
 
-      {/* Detail popover */}
-      {selectedNode && popoverPos && (
-        <div
-          className="absolute z-10 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
-          style={{ top: popoverPos.top, left: popoverPos.left }}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-bold leading-snug text-gray-900">
-              {selectedNode.title}
-            </h3>
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="shrink-0 text-gray-400 hover:text-gray-600"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        {/* Detail popover */}
+        {selectedNode && selectedLayout && (
+          <div
+            data-detail
+            className="absolute z-20 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+            style={{
+              left: selectedLayout.x,
+              top: selectedLayout.y + NODE_HEIGHT + 10,
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-bold leading-snug text-gray-900">
+                {selectedNode.title}
+              </h3>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="shrink-0 text-gray-400 hover:text-gray-600"
               >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          {selectedNode.authors && (
-            <p className="mt-1 text-xs text-gray-400">{selectedNode.authors}</p>
-          )}
-          <p className="mt-2 text-xs leading-relaxed text-gray-500">
-            {selectedNode.relevance}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <span
-              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
-              style={{
-                backgroundColor:
-                  RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
-              }}
-            >
-              {selectedNode.relationship}
-            </span>
-            {selectedNode.year > 0 && (
-              <span className="text-xs text-gray-400">{selectedNode.year}</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            {selectedNode.authors && (
+              <p className="mt-1 text-xs text-gray-400">{selectedNode.authors}</p>
             )}
-            <a
-              href={`/abs/${selectedNode.id}`}
-              className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
-            >
-              View paper
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            <p className="mt-2 text-xs leading-relaxed text-gray-500">
+              {selectedNode.relevance}
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <span
+                className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+                style={{
+                  backgroundColor:
+                    RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
+                }}
               >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </a>
+                {selectedNode.relationship}
+              </span>
+              {selectedNode.year > 0 && (
+                <span className="text-xs text-gray-400">{selectedNode.year}</span>
+              )}
+              <a
+                href={`/abs/${selectedNode.id}`}
+                className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
+              >
+                View paper
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </a>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
