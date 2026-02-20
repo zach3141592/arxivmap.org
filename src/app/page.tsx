@@ -1,5 +1,6 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { PaperInput } from "./paper-input";
+import { HomeTabs } from "./home-tabs";
 
 export default async function Home({
   searchParams,
@@ -26,11 +27,17 @@ export default async function Home({
     );
   }
 
-  // Fetch recent summaries for the dashboard
+  // Fetch recent summaries and trees for the dashboard
   const serviceClient = createServiceClient();
   const { data: recentPapers } = await serviceClient
     .from("paper_summaries")
     .select("arxiv_id, title, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const { data: recentTrees } = await serviceClient
+    .from("research_trees")
+    .select("arxiv_id, root_title, node_count, created_at")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -57,35 +64,10 @@ export default async function Home({
           <PaperInput />
         </section>
 
-        <section className="mt-12">
-          <h2 className="text-lg font-bold">Recent Summaries</h2>
-          {recentPapers && recentPapers.length > 0 ? (
-            <ul className="mt-4 divide-y divide-gray-100">
-              {recentPapers.map((paper) => (
-                <li key={paper.arxiv_id}>
-                  <a
-                    href={`/abs/${paper.arxiv_id}`}
-                    className="block py-3 transition-colors hover:bg-gray-50"
-                  >
-                    <p className="text-sm font-medium leading-snug">
-                      {paper.title}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {paper.arxiv_id}
-                      {paper.created_at && (
-                        <> &middot; {new Date(paper.created_at).toLocaleDateString()}</>
-                      )}
-                    </p>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-4 text-sm text-gray-500">
-              No summaries yet. Look up a paper to get started.
-            </p>
-          )}
-        </section>
+        <HomeTabs
+          papers={recentPapers || []}
+          trees={recentTrees || []}
+        />
       </main>
     </div>
   );

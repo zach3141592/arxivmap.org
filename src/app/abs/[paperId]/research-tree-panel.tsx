@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { TreeVisualization } from "./tree-visualization";
+import { TreeVisualization } from "@/components/tree-visualization";
 import type { ResearchTree } from "@/lib/research-tree";
 
-type Status = "idle" | "loading" | "success" | "error";
+type Status = "checking" | "idle" | "loading" | "success" | "error";
 
 interface ProgressStep {
   label: string;
   progress: number;
   done: boolean;
+}
+
+interface MembershipTree {
+  arxiv_id: string;
+  root_title: string;
+  tree_data: ResearchTree;
 }
 
 export function ResearchTreePanel({
@@ -23,13 +29,43 @@ export function ResearchTreePanel({
   abstract: string;
   authors: string;
 }) {
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<Status>("checking");
   const [tree, setTree] = useState<ResearchTree | null>(null);
+  const [memberTrees, setMemberTrees] = useState<MembershipTree[]>([]);
+  const [selectedTreeIdx, setSelectedTreeIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<ProgressStep[]>([]);
-  const fetchedRef = useRef(false);
+  const checkedRef = useRef(false);
 
-  async function fetchTree() {
+  // Check membership on mount
+  useEffect(() => {
+    if (checkedRef.current) return;
+    checkedRef.current = true;
+
+    async function checkMembership() {
+      try {
+        const res = await fetch(`/api/research-tree/membership?paperId=${paperId}`);
+        if (!res.ok) {
+          setStatus("idle");
+          return;
+        }
+        const data = await res.json();
+        if (data.trees && data.trees.length > 0) {
+          setMemberTrees(data.trees);
+          setTree(data.trees[0].tree_data);
+          setStatus("success");
+        } else {
+          setStatus("idle");
+        }
+      } catch {
+        setStatus("idle");
+      }
+    }
+
+    checkMembership();
+  }, [paperId]);
+
+  async function generateTree() {
     setStatus("loading");
     setError(null);
     setSteps([]);
@@ -53,7 +89,6 @@ export function ResearchTreePanel({
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Parse SSE events from buffer
         const lines = buffer.split("\n");
         buffer = "";
 
@@ -88,18 +123,11 @@ export function ResearchTreePanel({
               if (eventType === "error") throw e;
             }
           } else if (line === "") {
-            // Empty line separates events, reset
             eventType = "";
           } else {
-            // Incomplete line, put back in buffer
             buffer += line;
           }
         }
-      }
-
-      // If we never got a complete event, check if tree was set
-      if (!tree && status !== "success") {
-        setStatus("success");
       }
     } catch (err) {
       console.error(err);
@@ -108,15 +136,57 @@ export function ResearchTreePanel({
     }
   }
 
-  useEffect(() => {
-    if (!fetchedRef.current) {
-      fetchedRef.current = true;
-      fetchTree();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  function handleTreeSelect(idx: number) {
+    setSelectedTreeIdx(idx);
+    setTree(memberTrees[idx].tree_data);
+  }
 
-  if (status === "idle" || status === "loading") {
+  // Checking membership
+  if (status === "checking") {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-50/50">
+        <svg
+          className="h-5 w-5 animate-spin text-gray-400"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  // No existing tree — show generate button
+  if (status === "idle") {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
+        <p className="mb-4 text-sm text-gray-500">
+          No research tree found for this paper.
+        </p>
+        <button
+          onClick={generateTree}
+          className="rounded-lg border border-black px-5 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+        >
+          Generate Research Tree
+        </button>
+      </div>
+    );
+  }
+
+  // Loading / generating
+  if (status === "loading") {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
         <div className="w-full max-w-[280px]">
@@ -202,10 +272,7 @@ export function ResearchTreePanel({
       <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
         <p className="text-sm text-red-600">{error}</p>
         <button
-          onClick={() => {
-            fetchedRef.current = false;
-            fetchTree();
-          }}
+          onClick={generateTree}
           className="mt-4 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
         >
           Retry
@@ -220,7 +287,22 @@ export function ResearchTreePanel({
 
   return (
     <div className="h-full overflow-auto bg-gray-50/50">
-      <TreeVisualization tree={tree} />
+      {memberTrees.length > 1 && (
+        <div className="border-b border-gray-200 px-4 py-2">
+          <select
+            value={selectedTreeIdx}
+            onChange={(e) => handleTreeSelect(Number(e.target.value))}
+            className="w-full rounded border border-gray-200 px-2 py-1 text-sm"
+          >
+            {memberTrees.map((t, i) => (
+              <option key={t.arxiv_id} value={i}>
+                {t.root_title || t.arxiv_id}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <TreeVisualization tree={tree} highlightPaperId={paperId} />
     </div>
   );
 }

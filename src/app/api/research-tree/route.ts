@@ -74,14 +74,33 @@ export async function POST(request: Request) {
         );
         controller.close();
 
-        // Cache result (fire and forget)
-        serviceClient
+        // Cache result + populate denormalized columns and junction table
+        const rootNode = tree.nodes.find((n: { id: string }) => n.id === tree.root);
+        const rootTitle = rootNode?.title || title || "";
+        const nodeCount = tree.nodes.length;
+
+        await serviceClient
           .from("research_trees")
           .upsert({
             arxiv_id: paperId,
             tree_data: tree,
-          })
-          .then();
+            root_title: rootTitle,
+            node_count: nodeCount,
+          });
+
+        // Populate junction table: delete old entries, insert new
+        await serviceClient
+          .from("research_tree_papers")
+          .delete()
+          .eq("tree_arxiv_id", paperId);
+
+        const junctionRows = tree.nodes.map((n: { id: string }) => ({
+          tree_arxiv_id: paperId,
+          paper_arxiv_id: n.id,
+        }));
+        await serviceClient
+          .from("research_tree_papers")
+          .insert(junctionRows);
       } catch (err) {
         console.error("Research tree generation error:", err);
         controller.enqueue(

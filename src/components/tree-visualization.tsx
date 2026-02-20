@@ -100,7 +100,13 @@ function truncateText(text: string, maxLen: number): string {
   return text.slice(0, maxLen - 1) + "\u2026";
 }
 
-export function TreeVisualization({ tree }: { tree: ResearchTree }) {
+export function TreeVisualization({
+  tree,
+  highlightPaperId,
+}: {
+  tree: ResearchTree;
+  highlightPaperId?: string;
+}) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
 
   const layouts = useMemo(() => layoutNodes(tree), [tree]);
@@ -167,6 +173,7 @@ export function TreeVisualization({ tree }: { tree: ResearchTree }) {
           const { node, x, y } = layout;
           const isRoot = node.id === tree.root;
           const isSelected = selectedNode?.id === node.id;
+          const isHighlighted = highlightPaperId === node.id;
           const color = RELATIONSHIP_COLORS[node.relationship] ?? "#6b7280";
 
           return (
@@ -185,8 +192,8 @@ export function TreeVisualization({ tree }: { tree: ResearchTree }) {
                 height={NODE_HEIGHT}
                 rx={8}
                 fill={isRoot ? "#000" : "#fff"}
-                stroke={isSelected ? "#000" : "#e5e7eb"}
-                strokeWidth={isSelected ? 2 : 1}
+                stroke={isHighlighted ? "#3b82f6" : isSelected ? "#000" : "#e5e7eb"}
+                strokeWidth={isHighlighted ? 3 : isSelected ? 2 : 1}
               />
               {/* Relationship color bar */}
               <rect
