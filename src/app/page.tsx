@@ -37,9 +37,15 @@ export default async function Home({
 
   const { data: recentTrees } = await serviceClient
     .from("research_trees")
-    .select("arxiv_id, root_title, node_count, created_at")
+    .select("arxiv_id, root_title, node_count, tree_data, created_at")
     .order("created_at", { ascending: false })
     .limit(20);
+
+  // Backfill node_count from tree_data for trees saved before the column was populated
+  const trees = (recentTrees || []).map(({ tree_data, ...rest }) => ({
+    ...rest,
+    node_count: rest.node_count || (tree_data?.nodes?.length ?? 0),
+  }));
 
   return (
     <div className="min-h-screen">
@@ -66,7 +72,7 @@ export default async function Home({
 
         <HomeTabs
           papers={recentPapers || []}
-          trees={recentTrees || []}
+          trees={trees}
         />
       </main>
     </div>

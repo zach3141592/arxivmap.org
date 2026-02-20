@@ -34,6 +34,32 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+export async function PATCH(request: NextRequest) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  }
+
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id, root_title } = await request.json();
+  if (!id || !root_title) {
+    return NextResponse.json({ error: "Missing id or root_title" }, { status: 400 });
+  }
+
+  const serviceClient = createServiceClient();
+
+  await serviceClient
+    .from("research_trees")
+    .update({ root_title })
+    .eq("arxiv_id", id);
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return new Response("Not configured", { status: 500 });
@@ -100,13 +126,6 @@ export async function POST(request: Request) {
           }
         );
 
-        controller.enqueue(
-          encoder.encode(
-            `event: complete\ndata: ${JSON.stringify(tree)}\n\n`
-          )
-        );
-        controller.close();
-
         // Cache result + populate denormalized columns and junction table
         const rootNode = tree.nodes.find((n: { id: string }) => n.id === tree.root);
         const rootTitle = rootNode?.title || title || "";
@@ -134,6 +153,13 @@ export async function POST(request: Request) {
         await serviceClient
           .from("research_tree_papers")
           .insert(junctionRows);
+
+        controller.enqueue(
+          encoder.encode(
+            `event: complete\ndata: ${JSON.stringify(tree)}\n\n`
+          )
+        );
+        controller.close();
       } catch (err) {
         console.error("Research tree generation error:", err);
         controller.enqueue(

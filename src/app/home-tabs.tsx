@@ -19,10 +19,12 @@ interface Tree {
 }
 
 function ThreeDotMenu({
+  onRename,
   onEdit,
   onDownload,
   onDelete,
 }: {
+  onRename: () => void;
   onEdit: () => void;
   onDownload: () => void;
   onDelete: () => void;
@@ -66,6 +68,18 @@ function ThreeDotMenu({
 
       {open && (
         <div className="absolute right-0 top-8 z-10 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              onRename();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M21 18H3"/></svg>
+            Rename
+          </button>
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -130,7 +144,41 @@ export function HomeTabs({
   const [activeTab, setActiveTab] = useState<Tab>("papers");
   const [paperList, setPaperList] = useState(papers);
   const [treeList, setTreeList] = useState(trees);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const router = useRouter();
+
+  async function renamePaper(arxivId: string, newTitle: string) {
+    const res = await fetch("/api/paper", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: arxivId, title: newTitle }),
+    });
+    if (res.ok) {
+      setPaperList((prev) =>
+        prev.map((p) =>
+          p.arxiv_id === arxivId ? { ...p, title: newTitle } : p
+        )
+      );
+    }
+    setRenamingId(null);
+  }
+
+  async function renameTree(arxivId: string, newTitle: string) {
+    const res = await fetch("/api/research-tree", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: arxivId, root_title: newTitle }),
+    });
+    if (res.ok) {
+      setTreeList((prev) =>
+        prev.map((t) =>
+          t.arxiv_id === arxivId ? { ...t, root_title: newTitle } : t
+        )
+      );
+    }
+    setRenamingId(null);
+  }
 
   async function deletePaper(arxivId: string) {
     const res = await fetch(`/api/paper?id=${arxivId}`, { method: "DELETE" });
@@ -179,25 +227,50 @@ export function HomeTabs({
             {paperList.map((paper) => (
               <li key={paper.arxiv_id}>
                 <div className="flex items-center gap-2 py-3 transition-colors hover:bg-gray-50">
-                  <a
-                    href={`/abs/${paper.arxiv_id}`}
-                    className="min-w-0 flex-1"
-                  >
-                    <p className="text-sm font-medium leading-snug">
-                      {paper.title}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {paper.arxiv_id}
-                      {paper.created_at && (
-                        <>
-                          {" "}
-                          &middot;{" "}
-                          {new Date(paper.created_at).toLocaleDateString()}
-                        </>
-                      )}
-                    </p>
-                  </a>
+                  {renamingId === paper.arxiv_id ? (
+                    <form
+                      className="min-w-0 flex-1"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        renamePaper(paper.arxiv_id, renameValue);
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => setRenamingId(null)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setRenamingId(null);
+                        }}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-black focus:outline-none"
+                      />
+                    </form>
+                  ) : (
+                    <a
+                      href={`/abs/${paper.arxiv_id}`}
+                      className="min-w-0 flex-1"
+                    >
+                      <p className="text-sm font-medium leading-snug">
+                        {paper.title}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {paper.arxiv_id}
+                        {paper.created_at && (
+                          <>
+                            {" "}
+                            &middot;{" "}
+                            {new Date(paper.created_at).toLocaleDateString()}
+                          </>
+                        )}
+                      </p>
+                    </a>
+                  )}
                   <ThreeDotMenu
+                    onRename={() => {
+                      setRenameValue(paper.title);
+                      setRenamingId(paper.arxiv_id);
+                    }}
                     onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
                     onDownload={() =>
                       downloadJSON(`${paper.arxiv_id}.json`, {
@@ -222,27 +295,52 @@ export function HomeTabs({
           {treeList.map((tree) => (
             <li key={tree.arxiv_id}>
               <div className="flex items-center gap-2 py-3 transition-colors hover:bg-gray-50">
-                <a
-                  href={`/tree/${tree.arxiv_id}`}
-                  className="min-w-0 flex-1"
-                >
-                  <p className="text-sm font-medium leading-snug">
-                    {tree.root_title || tree.arxiv_id}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {tree.node_count != null && (
-                      <>{tree.node_count} papers</>
-                    )}
-                    {tree.created_at && (
-                      <>
-                        {" "}
-                        &middot;{" "}
-                        {new Date(tree.created_at).toLocaleDateString()}
-                      </>
-                    )}
-                  </p>
-                </a>
+                {renamingId === tree.arxiv_id ? (
+                  <form
+                    className="min-w-0 flex-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      renameTree(tree.arxiv_id, renameValue);
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => setRenamingId(null)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-black focus:outline-none"
+                    />
+                  </form>
+                ) : (
+                  <a
+                    href={`/tree/${tree.arxiv_id}`}
+                    className="min-w-0 flex-1"
+                  >
+                    <p className="text-sm font-medium leading-snug">
+                      {tree.root_title || tree.arxiv_id}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {tree.node_count != null && (
+                        <>{tree.node_count} papers</>
+                      )}
+                      {tree.created_at && (
+                        <>
+                          {" "}
+                          &middot;{" "}
+                          {new Date(tree.created_at).toLocaleDateString()}
+                        </>
+                      )}
+                    </p>
+                  </a>
+                )}
                 <ThreeDotMenu
+                  onRename={() => {
+                    setRenameValue(tree.root_title || tree.arxiv_id);
+                    setRenamingId(tree.arxiv_id);
+                  }}
                   onEdit={() => router.push(`/tree/${tree.arxiv_id}`)}
                   onDownload={() =>
                     downloadJSON(`tree-${tree.arxiv_id}.json`, {
