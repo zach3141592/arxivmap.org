@@ -168,16 +168,19 @@ export function TreeVisualization({
             const target = layoutMap.get(edge.target);
             if (!source || !target) return null;
 
+            // Source exits from bottom center, target enters at top center
             const x1 = source.x + NODE_WIDTH / 2;
             const y1 = source.y + NODE_HEIGHT;
             const x2 = target.x + NODE_WIDTH / 2;
             const y2 = target.y;
-            const cpY = (y1 + y2) / 2;
+            const midY = (y1 + y2) / 2;
 
+            // Cubic bezier with two control points that create a smooth S-curve
+            // CP1 goes straight down from source, CP2 goes straight up from target
             return (
               <path
                 key={`edge-${i}`}
-                d={`M ${x1} ${y1} Q ${x1} ${cpY}, ${x2} ${y2}`}
+                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
                 stroke="#d1d5db"
                 strokeWidth="1.5"
@@ -249,11 +252,11 @@ export function TreeVisualization({
           const x2 = target.x + NODE_WIDTH / 2;
           const y2 = target.y;
 
-          const cpX = x1;
-          const cpY = (y1 + y2) / 2;
-          const t = 0.5;
-          const labelX = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cpX + t * t * x2;
-          const labelY = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cpY + t * t * y2;
+          // Cubic bezier midpoint: C(x1,midY, x2,midY)
+          // B(0.5) = 0.125*P0 + 0.375*CP1 + 0.375*CP2 + 0.125*P1
+          const midY = (y1 + y2) / 2;
+          const labelX = 0.125 * x1 + 0.375 * x1 + 0.375 * x2 + 0.125 * x2;
+          const labelY = 0.125 * y1 + 0.375 * midY + 0.375 * midY + 0.125 * y2;
 
           return (
             <div
