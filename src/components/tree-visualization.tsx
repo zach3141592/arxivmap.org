@@ -198,8 +198,13 @@ export function TreeVisualization({
           const x2 = target.x + NODE_WIDTH / 2;
           const y2 = target.y;
 
-          const labelX = (x1 + x2) / 2;
-          const labelY = (y1 + y2) / 2;
+          // Quadratic bezier: P0=(x1,y1), CP=(x1, (y1+y2)/2), P1=(x2,y2)
+          // Point on curve at t=0.5: B(t) = (1-t)^2*P0 + 2*(1-t)*t*CP + t^2*P1
+          const cpX = x1;
+          const cpY = (y1 + y2) / 2;
+          const t = 0.5;
+          const labelX = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cpX + t * t * x2;
+          const labelY = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cpY + t * t * y2;
 
           return (
             <div
