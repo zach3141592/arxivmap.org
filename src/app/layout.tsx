@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Arxiv Map",
   description: "Arxiv Map",
+  icons: {
+    icon: "/arxivmap.png",
+  },
 };
 
 export default function RootLayout({
