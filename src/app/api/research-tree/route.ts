@@ -1,5 +1,6 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateResearchTree } from "@/lib/research-tree";
+import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(request: NextRequest) {
@@ -72,6 +73,10 @@ export async function POST(request: Request) {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (!rateLimit(authData.user.id).ok) {
+    return new Response("Too many requests", { status: 429 });
   }
 
   const { paperId, title, abstract, authors } = await request.json();

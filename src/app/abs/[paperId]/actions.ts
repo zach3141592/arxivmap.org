@@ -3,6 +3,7 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { fetchArxivPaper } from "@/lib/arxiv";
 import { summarizePaper } from "@/lib/summarize";
+import { rateLimit } from "@/lib/rate-limit";
 
 export type SummarizeResult = {
   status: "idle";
@@ -31,6 +32,10 @@ export async function summarizePaperAction(
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) {
     return { status: "error", message: "You must be signed in to summarize papers." };
+  }
+
+  if (!rateLimit(authData.user.id).ok) {
+    return { status: "error", message: "Too many requests. Please wait a moment." };
   }
 
   const serviceClient = createServiceClient();
