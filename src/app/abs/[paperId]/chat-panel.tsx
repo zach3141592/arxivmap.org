@@ -121,7 +121,7 @@ export function ChatPanel({ abstract }: { abstract: string }) {
       </div>
 
       <div className="border-t border-gray-100 bg-white p-3">
-        <form onSubmit={handleSubmit} className="relative">
+        <form onSubmit={handleSubmit} className="flex items-end gap-0 rounded-xl border border-gray-200 bg-gray-50 transition-all focus-within:border-gray-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100">
           <textarea
             ref={inputRef}
             value={input}
@@ -130,15 +130,15 @@ export function ChatPanel({ abstract }: { abstract: string }) {
             placeholder="Ask about this paper..."
             disabled={isStreaming}
             rows={1}
-            className="w-full resize-none overflow-hidden rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-4 pr-10 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100 disabled:opacity-50"
+            className="flex-1 resize-none overflow-hidden bg-transparent py-2.5 pl-4 pr-2 text-sm outline-none placeholder:text-gray-400 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={isStreaming || !input.trim()}
-            className="absolute bottom-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-md bg-gray-900 text-white transition-all hover:bg-black disabled:opacity-20"
+            className="mb-1.5 mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-white transition-all hover:bg-black disabled:opacity-20"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
+              <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
           </button>
         </form>
