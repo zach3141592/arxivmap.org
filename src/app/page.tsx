@@ -58,6 +58,11 @@ export default async function Home() {
     node_count: rest.node_count || (tree_data?.nodes?.length ?? 0),
   }));
 
+  // Collect tree data for the map view
+  const treeDataList = (recentTrees || [])
+    .filter((t) => t.tree_data)
+    .map((t) => t.tree_data);
+
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
@@ -87,6 +92,7 @@ export default async function Home() {
         <HomeTabs
           papers={recentPapers || []}
           trees={trees}
+          treeDataList={treeDataList}
         />
       </main>
     </div>

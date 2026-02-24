@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { PaperMap } from "@/components/paper-map";
 
-type Tab = "papers" | "trees";
+type Tab = "papers" | "trees" | "map";
 
 interface Paper {
   arxiv_id: string;
@@ -122,12 +123,20 @@ function downloadJSON(filename: string, data: Record<string, unknown>) {
   URL.revokeObjectURL(url);
 }
 
+interface TreeData {
+  root: string;
+  nodes: { id: string; title: string }[];
+  edges: { source: string; target: string }[];
+}
+
 export function HomeTabs({
   papers,
   trees,
+  treeDataList,
 }: {
   papers: Paper[];
   trees: Tree[];
+  treeDataList: TreeData[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("papers");
   const [paperList, setPaperList] = useState(papers);
@@ -207,9 +216,23 @@ export function HomeTabs({
         >
           Research Trees
         </button>
+        <button
+          onClick={() => setActiveTab("map")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+            activeTab === "map"
+              ? "border-b-2 border-gray-900 text-gray-900"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          My Map
+        </button>
       </div>
 
-      {activeTab === "papers" ? (
+      {activeTab === "map" ? (
+        <div className="mt-4">
+          <PaperMap papers={paperList} treeDataList={treeDataList} />
+        </div>
+      ) : activeTab === "papers" ? (
         paperList.length > 0 ? (
           <ul className="mt-2">
             {paperList.map((paper) => (
