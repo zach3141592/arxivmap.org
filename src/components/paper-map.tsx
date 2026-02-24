@@ -225,10 +225,10 @@ export function PaperMap({
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden bg-gray-50/40 ${
+      className={`relative overflow-hidden ${
         isFullscreen
-          ? "fixed inset-0 z-50 h-screen w-screen"
-          : "h-[500px] rounded-2xl border border-gray-100"
+          ? "fixed inset-0 z-[9999] h-screen w-screen bg-white"
+          : "h-[500px] rounded-2xl border border-gray-100 bg-gray-50/40"
       }`}
       style={{ cursor: dragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
