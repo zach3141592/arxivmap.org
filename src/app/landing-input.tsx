@@ -34,7 +34,6 @@ export function LandingInput() {
     const paperId = extractPaperId(value);
     if (!paperId) return;
 
-    // Set the returnTo value and submit the login form
     if (returnToRef.current) {
       returnToRef.current.value = `/abs/${paperId}`;
     }
@@ -42,23 +41,22 @@ export function LandingInput() {
   }
 
   return (
-    <div className="mt-8 w-full max-w-md">
-      <form onSubmit={handleSubmit} className="flex gap-2">
+    <div className="mt-10 w-full">
+      <form onSubmit={handleSubmit} className="relative">
         <input
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Paste an arXiv URL or ID"
-          className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100"
+          placeholder="Paste an arXiv URL or paper ID"
+          className="h-14 w-full rounded-2xl border border-gray-200 bg-white px-5 pr-20 text-base outline-none transition-all placeholder:text-gray-300 focus:border-gray-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.03)]"
         />
         <button
           type="submit"
-          className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.97]"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.97]"
         >
           Go
         </button>
       </form>
-      {/* Hidden form that actually submits to the login endpoint */}
       <form ref={formRef} action="/auth/login" method="POST" className="hidden">
         <input ref={returnToRef} type="hidden" name="returnTo" value="" />
       </form>

@@ -18,22 +18,19 @@ export default async function Home({
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <main className="flex flex-col items-center">
-          <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <main className="flex w-full max-w-lg flex-col items-center">
+          <h1 className="text-4xl font-medium tracking-tight text-gray-900 sm:text-5xl">
             Arxiv Map
           </h1>
-          <p className="mt-4 text-base text-gray-400">
+          <p className="mt-3 text-sm tracking-wide text-gray-400">
             AI-powered paper summaries
           </p>
           <LandingInput />
-          <div className="mt-8 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-xs text-gray-300">or</span>
-            <div className="h-px flex-1 bg-gray-100" />
-          </div>
-          <SignInButton returnTo={returnTo} />
         </main>
+        <footer className="mt-20">
+          <SignInButton returnTo={returnTo} />
+        </footer>
       </div>
     );
   }
@@ -94,11 +91,11 @@ export default async function Home({
 
 function SignInButton({ returnTo }: { returnTo?: string }) {
   return (
-    <form action="/auth/login" method="POST" className="mt-8">
+    <form action="/auth/login" method="POST">
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <button
         type="submit"
-        className="rounded-full bg-gray-900 px-7 py-3 text-sm font-medium text-white transition-all hover:bg-black hover:shadow-lg active:scale-[0.98]"
+        className="text-sm text-gray-400 underline decoration-gray-300 underline-offset-4 transition-colors hover:text-gray-600 hover:decoration-gray-400"
       >
         Sign in with Google
       </button>
