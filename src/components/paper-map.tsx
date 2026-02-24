@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface MapNode {
   id: string;
@@ -222,12 +223,12 @@ export function PaperMap({
   const NODE_W = 200;
   const NODE_H = 44;
 
-  return (
+  const mapContent = (
     <div
       ref={containerRef}
       className={`relative overflow-hidden ${
         isFullscreen
-          ? "fixed inset-0 z-[9999] h-screen w-screen bg-white"
+          ? "h-screen w-screen bg-white"
           : "h-[500px] rounded-2xl border border-gray-100 bg-gray-50/40"
       }`}
       style={{ cursor: dragging ? "grabbing" : "grab" }}
@@ -243,7 +244,6 @@ export function PaperMap({
         style={{ overflow: "visible" }}
       >
         <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-          {/* Edges */}
           {edges.map((e, i) => {
             const s = nodes.find((n) => n.id === e.source);
             const t = nodes.find((n) => n.id === e.target);
@@ -262,7 +262,6 @@ export function PaperMap({
             );
           })}
 
-          {/* Nodes */}
           {nodes.map((node) => {
             const isUserPaper = userPaperIds.has(node.id);
             const isHovered = hoveredNode === node.id;
@@ -316,19 +315,26 @@ export function PaperMap({
 
       {/* Controls */}
       <div className="absolute bottom-3 right-3 flex gap-1">
-        {!isFullscreen && (
-          <button
-            onClick={() => setIsFullscreen(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-          >
+        <button
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+        >
+          {isFullscreen ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 14 10 14 10 20" />
+              <polyline points="20 10 14 10 14 4" />
+              <line x1="14" y1="10" x2="21" y2="3" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          ) : (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 3 21 3 21 9" />
               <polyline points="9 21 3 21 3 15" />
               <line x1="21" y1="3" x2="14" y2="10" />
               <line x1="3" y1="21" x2="10" y2="14" />
             </svg>
-          </button>
-        )}
+          )}
+        </button>
         <button
           onClick={() => setZoom(Math.min(3, zoom * 1.2))}
           className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
@@ -342,8 +348,9 @@ export function PaperMap({
           -
         </button>
       </div>
+
       {isFullscreen && (
-        <div className="absolute left-4 top-4 flex items-center gap-3">
+        <div className="absolute left-4 top-4">
           <a
             href="/"
             className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
@@ -354,21 +361,23 @@ export function PaperMap({
           </a>
         </div>
       )}
-      {isFullscreen && (
-        <div className="absolute right-3 top-3">
-          <button
-            onClick={() => setIsFullscreen(false)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="4 14 10 14 10 20" />
-              <polyline points="20 10 14 10 14 4" />
-              <line x1="14" y1="10" x2="21" y2="3" />
-              <line x1="3" y1="21" x2="10" y2="14" />
-            </svg>
-          </button>
-        </div>
-      )}
     </div>
   );
+
+  if (isFullscreen) {
+    return (
+      <>
+        {/* Keep a placeholder so the page layout doesn't jump */}
+        <div className="h-[500px]" />
+        {createPortal(
+          <div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>
+            {mapContent}
+          </div>,
+          document.body
+        )}
+      </>
+    );
+  }
+
+  return mapContent;
 }
