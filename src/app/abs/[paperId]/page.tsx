@@ -81,8 +81,8 @@ export default async function PaperPage({
   }
 
   return (
-    <div className="flex min-h-screen">
-      <div className="flex-1 overflow-y-auto px-6 py-10 lg:px-12">
+    <div className="flex h-screen overflow-hidden">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-10 lg:px-12">
         <article className="mx-auto w-full max-w-2xl">
           <a
             href="/"
