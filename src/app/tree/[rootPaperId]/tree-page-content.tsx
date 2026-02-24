@@ -37,9 +37,10 @@ export function TreePageContent({
       <header className="flex items-center gap-4 border-b border-gray-100 px-6 py-3">
         <a
           href="/"
-          className="text-sm text-gray-400 transition-colors hover:text-gray-800"
+          className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
         >
-          &larr; Home
+          <img src="/arxivmap.png" alt="" className="h-5 w-5" />
+          Arxiv Map
         </a>
         <h1 className="flex-1 truncate text-base font-semibold tracking-tight">{rootTitle}</h1>
         <button

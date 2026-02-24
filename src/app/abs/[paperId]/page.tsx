@@ -74,9 +74,10 @@ export default async function PaperPage({
         <article className="mx-auto w-full max-w-2xl">
           <a
             href="/"
-            className="mb-10 inline-block text-sm text-gray-400 transition-colors hover:text-gray-800"
+            className="mb-10 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
           >
-            &larr; Home
+            <img src="/arxivmap.png" alt="" className="h-5 w-5" />
+            Arxiv Map
           </a>
 
           <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>

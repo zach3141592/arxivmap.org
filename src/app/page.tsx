@@ -20,7 +20,8 @@ export default async function Home({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6">
         <main className="flex w-full max-w-lg flex-col items-center">
-          <h1 className="text-4xl font-medium tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="flex items-center gap-3 text-4xl font-medium tracking-tight text-gray-900 sm:text-5xl">
+            <img src="/arxivmap.png" alt="" className="h-10 w-10 sm:h-12 sm:w-12" />
             Arxiv Map
           </h1>
           <p className="mt-3 text-sm tracking-wide text-gray-400">
@@ -60,7 +61,10 @@ export default async function Home({
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
-        <a href="/" className="text-base font-semibold tracking-tight">Arxiv Map</a>
+        <a href="/" className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <img src="/arxivmap.png" alt="" className="h-6 w-6" />
+          Arxiv Map
+        </a>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-gray-400 sm:inline">{user.email}</span>
           <form action="/auth/signout" method="POST">
