@@ -28,15 +28,15 @@ export default async function TreePage({
 
   if (!treeRow) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <h1 className="text-2xl font-bold">Tree not found</h1>
-          <p className="text-sm text-gray-600">
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <h1 className="text-xl font-semibold">Tree not found</h1>
+          <p className="text-sm text-gray-400">
             No research tree found for ID: {rootPaperId}
           </p>
           <a
             href="/"
-            className="border border-black px-6 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+            className="mt-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-black"
           >
             Go home
           </a>

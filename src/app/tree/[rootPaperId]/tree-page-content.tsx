@@ -34,46 +34,22 @@ export function TreePageContent({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex items-center gap-4 border-b border-gray-200 px-6 py-3">
+      <header className="flex items-center gap-4 border-b border-gray-100 px-6 py-3">
         <a
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-black"
+          className="text-sm text-gray-400 transition-colors hover:text-gray-800"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Home
+          &larr; Home
         </a>
-        <h1 className="flex-1 text-lg font-bold tracking-tight">{rootTitle}</h1>
+        <h1 className="flex-1 truncate text-base font-semibold tracking-tight">{rootTitle}</h1>
         <button
           onClick={() => setChatOpen(!chatOpen)}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
             chatOpen
-              ? "border-black bg-black text-white"
-              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              ? "bg-gray-900 text-white"
+              : "border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-800"
           }`}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
           Chat
         </button>
       </header>
@@ -84,7 +60,7 @@ export function TreePageContent({
         </div>
 
         {chatOpen && (
-          <aside className="h-full w-[400px] shrink-0 border-l border-gray-200 bg-white">
+          <aside className="h-full w-[400px] shrink-0 border-l border-gray-100 bg-white">
             <ChatPanel abstract={chatContext} />
           </aside>
         )}

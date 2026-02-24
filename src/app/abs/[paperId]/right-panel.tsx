@@ -21,12 +21,12 @@ export function RightPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex border-b border-gray-200 bg-white">
+      <div className="flex gap-1 border-b border-gray-100 bg-white px-2 pt-1">
         <button
           onClick={() => setActiveTab("chat")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "chat"
-              ? "border-b-2 border-black text-black"
+              ? "border-b-2 border-gray-900 text-gray-900"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -34,9 +34,9 @@ export function RightPanel({
         </button>
         <button
           onClick={() => setActiveTab("tree")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "tree"
-              ? "border-b-2 border-black text-black"
+              ? "border-b-2 border-gray-900 text-gray-900"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >

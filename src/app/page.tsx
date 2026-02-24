@@ -1,5 +1,6 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { PaperInput } from "./paper-input";
+import { LandingInput } from "./landing-input";
 import { HomeTabs } from "./home-tabs";
 
 export default async function Home({
@@ -17,10 +18,20 @@ export default async function Home({
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <main className="flex flex-col items-center gap-8">
-          <h1 className="text-5xl font-bold tracking-tight">Arxiv Map</h1>
-          <p className="text-lg text-gray-600">AI-powered paper summaries</p>
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <main className="flex flex-col items-center">
+          <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
+            Arxiv Map
+          </h1>
+          <p className="mt-4 text-base text-gray-400">
+            AI-powered paper summaries
+          </p>
+          <LandingInput />
+          <div className="mt-8 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-100" />
+            <span className="text-xs text-gray-300">or</span>
+            <div className="h-px flex-1 bg-gray-100" />
+          </div>
           <SignInButton returnTo={returnTo} />
         </main>
       </div>
@@ -51,14 +62,14 @@ export default async function Home({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-bold tracking-tight">Arxiv Map</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">{user.email}</span>
+      <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
+        <a href="/" className="text-base font-semibold tracking-tight">Arxiv Map</a>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-sm text-gray-400 sm:inline">{user.email}</span>
           <form action="/auth/signout" method="POST">
             <button
               type="submit"
-              className="border border-black px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+              className="rounded-full border border-gray-200 px-4 py-1.5 text-xs font-medium text-gray-500 transition-all hover:border-gray-400 hover:text-gray-800"
             >
               Sign out
             </button>
@@ -66,9 +77,9 @@ export default async function Home({
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-12">
-        <section className="flex flex-col items-center gap-4">
-          <h2 className="text-lg font-medium">Look up a paper</h2>
+      <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
+        <section className="flex flex-col items-center gap-5">
+          <h2 className="text-sm font-medium text-gray-400">Look up a paper</h2>
           <PaperInput />
         </section>
 
@@ -83,11 +94,11 @@ export default async function Home({
 
 function SignInButton({ returnTo }: { returnTo?: string }) {
   return (
-    <form action="/auth/login" method="POST">
+    <form action="/auth/login" method="POST" className="mt-8">
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <button
         type="submit"
-        className="border border-black px-6 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+        className="rounded-full bg-gray-900 px-7 py-3 text-sm font-medium text-white transition-all hover:bg-black hover:shadow-lg active:scale-[0.98]"
       >
         Sign in with Google
       </button>

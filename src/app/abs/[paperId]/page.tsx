@@ -47,15 +47,15 @@ export default async function PaperPage({
     const paper = await fetchArxivPaper(paperId);
     if (!paper) {
       return (
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <h1 className="text-2xl font-bold">Paper not found</h1>
-            <p className="text-sm text-gray-600">
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <h1 className="text-xl font-semibold">Paper not found</h1>
+            <p className="text-sm text-gray-400">
               Could not find arxiv paper with ID: {paperId}
             </p>
             <a
               href="/"
-              className="border border-black px-6 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+              className="mt-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-black"
             >
               Go home
             </a>
@@ -70,40 +70,38 @@ export default async function PaperPage({
 
   return (
     <div className="flex min-h-screen">
-      <div className="flex-1 overflow-y-auto px-6 py-12 lg:px-12">
+      <div className="flex-1 overflow-y-auto px-6 py-10 lg:px-12">
         <article className="mx-auto w-full max-w-2xl">
           <a
             href="/"
-            className="mb-8 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-black"
+            className="mb-10 inline-block text-sm text-gray-400 transition-colors hover:text-gray-800"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            Home
+            &larr; Home
           </a>
 
-          <h1 className="text-2xl font-bold leading-tight tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>
 
-          <p className="mt-3 text-sm leading-relaxed text-gray-500">{authors}</p>
+          <p className="mt-4 text-sm leading-relaxed text-gray-400">{authors}</p>
 
           <a
             href={`https://arxiv.org/abs/${paperId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-black"
+            className="mt-3 inline-block rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
           >
             arxiv.org/{paperId}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
 
           <section className="mt-10">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Abstract</h2>
-            <p className="mt-3 leading-relaxed text-gray-700">{abstract}</p>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-300">Abstract</h2>
+            <p className="mt-4 text-[15px] leading-[1.75] text-gray-600">{abstract}</p>
           </section>
 
           <SummarySection paperId={paperId} initialSummary={initialSummary} />
         </article>
       </div>
 
-      <aside className="sticky top-0 hidden h-screen w-[400px] shrink-0 border-l border-gray-200 lg:block">
+      <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-l border-gray-100 lg:block">
         <RightPanel paperId={paperId} title={title} abstract={abstract} authors={authors} />
       </aside>
     </div>

@@ -31,17 +31,17 @@ export function PaperInput() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 w-full max-w-xl">
+    <form onSubmit={handleSubmit} className="flex w-full max-w-xl gap-2">
       <input
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="arXiv ID or URL (e.g. 2301.07041)"
-        className="flex-1 border border-black px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black"
+        className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100"
       />
       <button
         type="submit"
-        className="border border-black px-6 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+        className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.97]"
       >
         Go
       </button>

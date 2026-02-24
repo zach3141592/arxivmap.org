@@ -144,26 +144,8 @@ export function ResearchTreePanel({
   // Checking membership
   if (status === "checking") {
     return (
-      <div className="flex h-full items-center justify-center bg-gray-50/50">
-        <svg
-          className="h-5 w-5 animate-spin text-gray-400"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-gray-300">Loading...</p>
       </div>
     );
   }
@@ -171,13 +153,13 @@ export function ResearchTreePanel({
   // No existing tree — show generate button
   if (status === "idle") {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
-        <p className="mb-4 text-sm text-gray-500">
+      <div className="flex h-full flex-col items-center justify-center px-6">
+        <p className="text-sm text-gray-400">
           No research tree found for this paper.
         </p>
         <button
           onClick={generateTree}
-          className="rounded-lg border border-black px-5 py-2 text-sm font-medium transition-colors hover:bg-black hover:text-white"
+          className="mt-4 rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98]"
         >
           Generate Research Tree
         </button>
@@ -187,80 +169,21 @@ export function ResearchTreePanel({
 
   // Loading / generating
   if (status === "loading") {
-    return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
-        <div className="w-full max-w-[280px]">
-          <div className="mb-6 text-center">
-            <svg
-              className="mx-auto h-5 w-5 animate-spin text-gray-400"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            <p className="mt-3 text-sm font-medium text-gray-500">
-              Building research tree
-            </p>
-          </div>
+    const currentStep = steps.length > 0 ? steps[steps.length - 1] : null;
+    const progressPercent = currentStep ? currentStep.progress : 0;
 
-          <div className="space-y-3">
-            {steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
-                {step.done ? (
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 text-green-500"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                ) : (
-                  <svg
-                    className="h-4 w-4 shrink-0 animate-spin text-gray-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                )}
-                <span
-                  className={`text-sm ${step.done ? "text-gray-400" : "text-gray-600"}`}
-                >
-                  {step.label}
-                </span>
-              </div>
-            ))}
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-6">
+        <div className="w-full max-w-[260px]">
+          <p className="mb-4 text-center text-sm font-medium text-gray-400">
+            {currentStep ? currentStep.label : "Building research tree..."}
+          </p>
+
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
       </div>
@@ -269,11 +192,11 @@ export function ResearchTreePanel({
 
   if (status === "error") {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-50/50 px-6">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="flex h-full flex-col items-center justify-center px-6">
+        <p className="text-sm text-red-500">{error}</p>
         <button
           onClick={generateTree}
-          className="mt-4 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+          className="mt-4 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-all hover:border-gray-400 hover:text-gray-900"
         >
           Retry
         </button>
@@ -286,13 +209,13 @@ export function ResearchTreePanel({
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-50/50">
+    <div className="h-full overflow-auto">
       {memberTrees.length > 1 && (
-        <div className="border-b border-gray-200 px-4 py-2">
+        <div className="border-b border-gray-100 px-4 py-2">
           <select
             value={selectedTreeIdx}
             onChange={(e) => handleTreeSelect(Number(e.target.value))}
-            className="w-full rounded border border-gray-200 px-2 py-1 text-sm"
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-gray-400"
           >
             {memberTrees.map((t, i) => (
               <option key={t.arxiv_id} value={i}>

@@ -52,22 +52,13 @@ function ThreeDotMenu({
           e.stopPropagation();
           setOpen(!open);
         }}
-        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        className="rounded-lg px-1.5 py-1 text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-500"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-        >
-          <circle cx="12" cy="5" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="12" cy="19" r="2" />
-        </svg>
+        <span className="text-sm leading-none tracking-widest">&middot;&middot;&middot;</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-10 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+        <div className="absolute right-0 top-8 z-10 w-36 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg shadow-gray-100/50">
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -75,9 +66,8 @@ function ThreeDotMenu({
               setOpen(false);
               onRename();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            className="w-full px-3.5 py-2 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M21 18H3"/></svg>
             Rename
           </button>
           <button
@@ -87,9 +77,8 @@ function ThreeDotMenu({
               setOpen(false);
               onEdit();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            className="w-full px-3.5 py-2 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
             Edit
           </button>
           <button
@@ -99,11 +88,11 @@ function ThreeDotMenu({
               setOpen(false);
               onDownload();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            className="w-full px-3.5 py-2 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download
           </button>
+          <div className="my-1 border-t border-gray-100" />
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -111,9 +100,8 @@ function ThreeDotMenu({
               setOpen(false);
               onDelete();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            className="w-full px-3.5 py-2 text-left text-sm text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
             Delete
           </button>
         </div>
@@ -197,13 +185,13 @@ export function HomeTabs({
   }
 
   return (
-    <section className="mt-12">
-      <div className="flex border-b border-gray-200">
+    <section className="mt-14">
+      <div className="flex gap-1 border-b border-gray-100">
         <button
           onClick={() => setActiveTab("papers")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "papers"
-              ? "border-b-2 border-black text-black"
+              ? "border-b-2 border-gray-900 text-gray-900"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -211,9 +199,9 @@ export function HomeTabs({
         </button>
         <button
           onClick={() => setActiveTab("trees")}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "trees"
-              ? "border-b-2 border-black text-black"
+              ? "border-b-2 border-gray-900 text-gray-900"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -223,10 +211,10 @@ export function HomeTabs({
 
       {activeTab === "papers" ? (
         paperList.length > 0 ? (
-          <ul className="mt-4 divide-y divide-gray-100">
+          <ul className="mt-2">
             {paperList.map((paper) => (
               <li key={paper.arxiv_id}>
-                <div className="flex items-center gap-2 py-3 transition-colors hover:bg-gray-50">
+                <div className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50">
                   {renamingId === paper.arxiv_id ? (
                     <form
                       className="min-w-0 flex-1"
@@ -243,7 +231,7 @@ export function HomeTabs({
                         onKeyDown={(e) => {
                           if (e.key === "Escape") setRenamingId(null);
                         }}
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-black focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
                       />
                     </form>
                   ) : (
@@ -251,10 +239,10 @@ export function HomeTabs({
                       href={`/abs/${paper.arxiv_id}`}
                       className="min-w-0 flex-1"
                     >
-                      <p className="text-sm font-medium leading-snug">
+                      <p className="truncate text-sm font-medium text-gray-800">
                         {paper.title}
                       </p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-0.5 text-xs text-gray-400">
                         {paper.arxiv_id}
                         {paper.created_at && (
                           <>
@@ -266,35 +254,37 @@ export function HomeTabs({
                       </p>
                     </a>
                   )}
-                  <ThreeDotMenu
-                    onRename={() => {
-                      setRenameValue(paper.title);
-                      setRenamingId(paper.arxiv_id);
-                    }}
-                    onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
-                    onDownload={() =>
-                      downloadJSON(`${paper.arxiv_id}.json`, {
-                        arxiv_id: paper.arxiv_id,
-                        title: paper.title,
-                        created_at: paper.created_at,
-                      })
-                    }
-                    onDelete={() => deletePaper(paper.arxiv_id)}
-                  />
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <ThreeDotMenu
+                      onRename={() => {
+                        setRenameValue(paper.title);
+                        setRenamingId(paper.arxiv_id);
+                      }}
+                      onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
+                      onDownload={() =>
+                        downloadJSON(`${paper.arxiv_id}.json`, {
+                          arxiv_id: paper.arxiv_id,
+                          title: paper.title,
+                          created_at: paper.created_at,
+                        })
+                      }
+                      onDelete={() => deletePaper(paper.arxiv_id)}
+                    />
+                  </div>
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-8 text-center text-sm text-gray-400">
             No summaries yet. Look up a paper to get started.
           </p>
         )
       ) : treeList.length > 0 ? (
-        <ul className="mt-4 divide-y divide-gray-100">
+        <ul className="mt-2">
           {treeList.map((tree) => (
             <li key={tree.arxiv_id}>
-              <div className="flex items-center gap-2 py-3 transition-colors hover:bg-gray-50">
+              <div className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50">
                 {renamingId === tree.arxiv_id ? (
                   <form
                     className="min-w-0 flex-1"
@@ -311,7 +301,7 @@ export function HomeTabs({
                       onKeyDown={(e) => {
                         if (e.key === "Escape") setRenamingId(null);
                       }}
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-black focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
                     />
                   </form>
                 ) : (
@@ -319,10 +309,10 @@ export function HomeTabs({
                     href={`/tree/${tree.arxiv_id}`}
                     className="min-w-0 flex-1"
                   >
-                    <p className="text-sm font-medium leading-snug">
+                    <p className="truncate text-sm font-medium text-gray-800">
                       {tree.root_title || tree.arxiv_id}
                     </p>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-0.5 text-xs text-gray-400">
                       {tree.node_count != null && (
                         <>{tree.node_count} papers</>
                       )}
@@ -336,28 +326,30 @@ export function HomeTabs({
                     </p>
                   </a>
                 )}
-                <ThreeDotMenu
-                  onRename={() => {
-                    setRenameValue(tree.root_title || tree.arxiv_id);
-                    setRenamingId(tree.arxiv_id);
-                  }}
-                  onEdit={() => router.push(`/tree/${tree.arxiv_id}`)}
-                  onDownload={() =>
-                    downloadJSON(`tree-${tree.arxiv_id}.json`, {
-                      arxiv_id: tree.arxiv_id,
-                      root_title: tree.root_title,
-                      node_count: tree.node_count,
-                      created_at: tree.created_at,
-                    })
-                  }
-                  onDelete={() => deleteTree(tree.arxiv_id)}
-                />
+                <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                  <ThreeDotMenu
+                    onRename={() => {
+                      setRenameValue(tree.root_title || tree.arxiv_id);
+                      setRenamingId(tree.arxiv_id);
+                    }}
+                    onEdit={() => router.push(`/tree/${tree.arxiv_id}`)}
+                    onDownload={() =>
+                      downloadJSON(`tree-${tree.arxiv_id}.json`, {
+                        arxiv_id: tree.arxiv_id,
+                        root_title: tree.root_title,
+                        node_count: tree.node_count,
+                        created_at: tree.created_at,
+                      })
+                    }
+                    onDelete={() => deleteTree(tree.arxiv_id)}
+                  />
+                </div>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-gray-500">
+        <p className="mt-8 text-center text-sm text-gray-400">
           No research trees yet. Generate one from a paper page.
         </p>
       )}
