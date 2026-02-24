@@ -66,6 +66,18 @@ export default async function PaperPage({
     title = paper.title;
     authors = paper.authors;
     abstract = paper.abstract;
+
+    // Save paper on first visit so it appears in the home page list
+    await serviceClient.from("paper_summaries").upsert(
+      {
+        arxiv_id: paperId,
+        user_id: authData.user.id,
+        title,
+        authors,
+        abstract,
+      },
+      { onConflict: "arxiv_id,user_id", ignoreDuplicates: true }
+    );
   }
 
   return (
