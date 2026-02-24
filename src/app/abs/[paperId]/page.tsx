@@ -19,7 +19,7 @@ export default async function PaperPage({
   const supabase = await createClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) {
-    redirect(`/?returnTo=/abs/${paperId}`);
+    redirect(`/login?returnTo=/abs/${paperId}`);
   }
 
   // Service client bypasses RLS for cache reads

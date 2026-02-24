@@ -3,12 +3,7 @@ import { PaperInput } from "./paper-input";
 import { LandingInput } from "./landing-input";
 import { HomeTabs } from "./home-tabs";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ returnTo?: string }>;
-}) {
-  const { returnTo } = await searchParams;
+export default async function Home() {
   let user = null;
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -30,7 +25,12 @@ export default async function Home({
           <LandingInput />
         </main>
         <footer className="mt-20">
-          <SignInButton returnTo={returnTo} />
+          <a
+            href="/login"
+            className="text-sm text-gray-400 underline decoration-gray-300 underline-offset-4 transition-colors hover:text-gray-600 hover:decoration-gray-400"
+          >
+            Login
+          </a>
         </footer>
       </div>
     );
@@ -90,19 +90,5 @@ export default async function Home({
         />
       </main>
     </div>
-  );
-}
-
-function SignInButton({ returnTo }: { returnTo?: string }) {
-  return (
-    <form action="/auth/login" method="POST">
-      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
-      <button
-        type="submit"
-        className="text-sm text-gray-400 underline decoration-gray-300 underline-offset-4 transition-colors hover:text-gray-600 hover:decoration-gray-400"
-      >
-        Sign in with Google
-      </button>
-    </form>
   );
 }

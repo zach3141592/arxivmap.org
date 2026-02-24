@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 function extractPaperId(input: string): string | null {
   const trimmed = input.trim();
@@ -26,18 +27,13 @@ function extractPaperId(input: string): string | null {
 
 export function LandingInput() {
   const [value, setValue] = useState("");
-  const formRef = useRef<HTMLFormElement>(null);
-  const returnToRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const paperId = extractPaperId(value);
     if (!paperId) return;
-
-    if (returnToRef.current) {
-      returnToRef.current.value = `/abs/${paperId}`;
-    }
-    formRef.current?.submit();
+    router.push(`/login?returnTo=/abs/${paperId}`);
   }
 
   return (
@@ -56,9 +52,6 @@ export function LandingInput() {
         >
           Go
         </button>
-      </form>
-      <form ref={formRef} action="/auth/login" method="POST" className="hidden">
-        <input ref={returnToRef} type="hidden" name="returnTo" value="" />
       </form>
     </div>
   );

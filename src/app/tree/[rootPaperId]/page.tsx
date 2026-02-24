@@ -15,7 +15,7 @@ export default async function TreePage({
   const supabase = await createClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) {
-    redirect(`/?returnTo=/tree/${rootPaperId}`);
+    redirect(`/login?returnTo=/tree/${rootPaperId}`);
   }
 
   const serviceClient = createServiceClient();
