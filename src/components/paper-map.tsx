@@ -343,18 +343,31 @@ export function PaperMap({
         </button>
       </div>
       {isFullscreen && (
-        <button
-          onClick={() => setIsFullscreen(false)}
-          className="absolute left-4 top-4 flex h-8 items-center gap-2 rounded-lg bg-white px-3 text-sm text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="4 14 10 14 10 20" />
-            <polyline points="20 10 14 10 14 4" />
-            <line x1="14" y1="10" x2="21" y2="3" />
-            <line x1="3" y1="21" x2="10" y2="14" />
-          </svg>
-          Exit fullscreen
-        </button>
+        <div className="absolute left-4 top-4 flex items-center gap-3">
+          <a
+            href="/"
+            className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
+          >
+            &larr;
+            <img src="/arxivmap.png" alt="" className="h-5 w-5" />
+            Arxiv Map
+          </a>
+        </div>
+      )}
+      {isFullscreen && (
+        <div className="absolute right-3 top-3">
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 14 10 14 10 20" />
+              <polyline points="20 10 14 10 14 4" />
+              <line x1="14" y1="10" x2="21" y2="3" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   );
