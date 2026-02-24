@@ -88,6 +88,7 @@ export default async function PaperPage({
             href="/"
             className="mb-10 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
           >
+            &larr;
             <img src="/arxivmap.png" alt="" className="h-5 w-5" />
             Arxiv Map
           </a>
