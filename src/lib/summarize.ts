@@ -5,13 +5,17 @@ const anthropic = new Anthropic();
 export async function summarizePaper(abstract: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 1024,
+    max_tokens: 1500,
     messages: [
       {
         role: "user",
-        content: `You are a research paper summarizer. Given the following academic paper abstract, produce a structured summary using the exact format below. Use markdown headings (##) and bullet points (-). Be concise — each bullet should be one sentence. Write for a technical audience but aim for clarity.
+        content: `You are a research paper summarizer. Given the following academic paper abstract, produce a structured summary using the exact format below. Use markdown headings (##) and bullet points (-). Each bullet should be 1-2 clear sentences. Use **bold** to highlight key terms or concepts within bullets. Write for a technical audience but aim for clarity and precision.
+
+## TL;DR
+- A single sentence capturing the core contribution and result of this paper.
 
 ## Key Contributions
+- ...
 - ...
 - ...
 
@@ -19,7 +23,12 @@ export async function summarizePaper(abstract: string): Promise<string> {
 - ...
 - ...
 
-## Findings
+## Key Findings
+- ...
+- ...
+- ...
+
+## Limitations & Future Work
 - ...
 - ...
 

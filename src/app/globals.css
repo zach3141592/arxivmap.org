@@ -24,7 +24,7 @@ body {
   color: #fff;
 }
 
-/* Smooth scrollbar */
+/* Scrollbar — only visible while scrolling */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -34,10 +34,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
+  background: transparent;
   border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.is-scrolling::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+}
+
+.is-scrolling::-webkit-scrollbar-thumb:hover {
   background: #a3a3a3;
 }

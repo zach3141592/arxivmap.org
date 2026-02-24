@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { fetchArxivPaper } from "@/lib/arxiv";
+import { ScrollContainer } from "@/components/scroll-container";
 import { SummarySection } from "./summary-section";
 import { RightPanel } from "./right-panel";
 
@@ -82,7 +83,7 @@ export default async function PaperPage({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-10 lg:px-12">
+      <ScrollContainer className="flex-1 overflow-y-auto overscroll-contain px-6 py-10 lg:px-12">
         <article className="mx-auto w-full max-w-2xl">
           <a
             href="/"
@@ -113,7 +114,7 @@ export default async function PaperPage({
 
           <SummarySection paperId={paperId} initialSummary={initialSummary} />
         </article>
-      </div>
+      </ScrollContainer>
 
       <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-l border-gray-100 lg:block">
         <RightPanel paperId={paperId} title={title} abstract={abstract} authors={authors} />
