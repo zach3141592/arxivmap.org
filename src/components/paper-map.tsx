@@ -133,28 +133,32 @@ export function PaperMap({
 
   const { nodes, edges, userPaperIds } = buildGraph(papers, treeDataList);
 
-  // Auto-center on mount
+  // Re-center graph on mount and when fullscreen toggles
   useEffect(() => {
     if (nodes.length === 0 || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const minX = Math.min(...nodes.map((n) => n.x));
-    const maxX = Math.max(...nodes.map((n) => n.x));
-    const minY = Math.min(...nodes.map((n) => n.y));
-    const maxY = Math.max(...nodes.map((n) => n.y));
-    const graphW = maxX - minX + 300;
-    const graphH = maxY - minY + 200;
-    const scaleX = rect.width / graphW;
-    const scaleY = rect.height / graphH;
-    const scale = Math.min(scaleX, scaleY, 1.2);
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    setZoom(scale);
-    setPan({
-      x: rect.width / 2 - centerX * scale,
-      y: rect.height / 2 - centerY * scale,
+    // Small delay so the container has its new dimensions after fullscreen toggle
+    const frame = requestAnimationFrame(() => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      const minX = Math.min(...nodes.map((n) => n.x));
+      const maxX = Math.max(...nodes.map((n) => n.x));
+      const minY = Math.min(...nodes.map((n) => n.y));
+      const maxY = Math.max(...nodes.map((n) => n.y));
+      const graphW = maxX - minX + 300;
+      const graphH = maxY - minY + 200;
+      const scaleX = rect.width / graphW;
+      const scaleY = rect.height / graphH;
+      const scale = Math.min(scaleX, scaleY, 1.2);
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      setZoom(scale);
+      setPan({
+        x: rect.width / 2 - centerX * scale,
+        y: rect.height / 2 - centerY * scale,
+      });
     });
+    return () => cancelAnimationFrame(frame);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length]);
+  }, [nodes.length, isFullscreen]);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -312,26 +316,19 @@ export function PaperMap({
 
       {/* Controls */}
       <div className="absolute bottom-3 right-3 flex gap-1">
-        <button
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-        >
-          {isFullscreen ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="4 14 10 14 10 20" />
-              <polyline points="20 10 14 10 14 4" />
-              <line x1="14" y1="10" x2="21" y2="3" />
-              <line x1="3" y1="21" x2="10" y2="14" />
-            </svg>
-          ) : (
+        {!isFullscreen && (
+          <button
+            onClick={() => setIsFullscreen(true)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 3 21 3 21 9" />
               <polyline points="9 21 3 21 3 15" />
               <line x1="21" y1="3" x2="14" y2="10" />
               <line x1="3" y1="21" x2="10" y2="14" />
             </svg>
-          )}
-        </button>
+          </button>
+        )}
         <button
           onClick={() => setZoom(Math.min(3, zoom * 1.2))}
           className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
@@ -350,7 +347,13 @@ export function PaperMap({
           onClick={() => setIsFullscreen(false)}
           className="absolute left-4 top-4 flex h-8 items-center gap-2 rounded-lg bg-white px-3 text-sm text-gray-500 shadow-sm transition-colors hover:text-gray-900"
         >
-          &larr; Back
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="14" y1="10" x2="21" y2="3" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          Exit fullscreen
         </button>
       )}
     </div>
