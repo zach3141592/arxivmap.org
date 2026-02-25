@@ -40,7 +40,7 @@ export default async function Home() {
   const serviceClient = createServiceClient();
   const { data: recentPapers } = await serviceClient
     .from("paper_summaries")
-    .select("arxiv_id, title, created_at")
+    .select("arxiv_id, title, authors, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);

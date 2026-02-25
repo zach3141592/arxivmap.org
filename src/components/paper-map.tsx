@@ -3,9 +3,25 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 
+/* ── Relationship colors (matching tree-visualization.tsx) ── */
+
+const RELATIONSHIP_COLORS: Record<string, string> = {
+  foundational: "#3b82f6",
+  extends: "#22c55e",
+  alternative: "#f97316",
+  applies: "#8b5cf6",
+  successor: "#06b6d4",
+};
+
+/* ── Types ── */
+
 interface MapNode {
   id: string;
   title: string;
+  authors?: string;
+  year?: number;
+  relationship?: string;
+  relevance?: string;
   x: number;
   y: number;
 }
@@ -13,28 +29,82 @@ interface MapNode {
 interface MapEdge {
   source: string;
   target: string;
+  label?: string;
 }
 
 interface Paper {
   arxiv_id: string;
   title: string;
+  authors?: string;
 }
 
 interface TreeData {
   root: string;
-  nodes: { id: string; title: string }[];
-  edges: { source: string; target: string }[];
+  nodes: {
+    id: string;
+    title: string;
+    authors?: string;
+    year?: number;
+    relationship?: string;
+    relevance?: string;
+  }[];
+  edges: { source: string; target: string; label?: string }[];
 }
+
+/* ── Layout constants ── */
+
+const NODE_W = 280;
+const NODE_H = 80;
+
+/* ── Helpers ── */
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "\u2026";
+}
+
+function firstAuthor(authors?: string): string {
+  if (!authors) return "";
+  const first = authors.split(",")[0].trim();
+  const hasMore = authors.includes(",");
+  return hasMore ? `${first} et al.` : first;
+}
+
+function colorForRelationship(rel?: string): string {
+  if (!rel) return "#d1d5db";
+  return RELATIONSHIP_COLORS[rel] ?? "#d1d5db";
+}
+
+/* ── Graph builder ── */
 
 function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
   const nodeMap = new Map<string, MapNode>();
 
   // Add all user papers as nodes
   for (const p of papers) {
-    nodeMap.set(p.arxiv_id, { id: p.arxiv_id, title: p.title, x: 0, y: 0 });
+    nodeMap.set(p.arxiv_id, {
+      id: p.arxiv_id,
+      title: p.title,
+      authors: p.authors,
+      x: 0,
+      y: 0,
+    });
   }
 
-  // Collect edges from trees — only between papers the user has saved
+  // Enrich nodes from tree data (merge metadata like authors, year, relationship)
+  for (const tree of treeDataList) {
+    for (const tn of tree.nodes) {
+      const existing = nodeMap.get(tn.id);
+      if (existing) {
+        if (!existing.authors && tn.authors) existing.authors = tn.authors;
+        if (!existing.year && tn.year) existing.year = tn.year;
+        if (!existing.relationship && tn.relationship) existing.relationship = tn.relationship;
+        if (!existing.relevance && tn.relevance) existing.relevance = tn.relevance;
+      }
+    }
+  }
+
+  // Collect edges — only between papers the user has saved
   const edgeSet = new Set<string>();
   const edges: MapEdge[] = [];
   for (const tree of treeDataList) {
@@ -42,7 +112,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
       const key = [e.source, e.target].sort().join("--");
       if (!edgeSet.has(key) && nodeMap.has(e.source) && nodeMap.has(e.target)) {
         edgeSet.add(key);
-        edges.push({ source: e.source, target: e.target });
+        edges.push({ source: e.source, target: e.target, label: e.label });
       }
     }
   }
@@ -50,11 +120,10 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
   const nodes = [...nodeMap.values()];
   const userPaperIds = new Set(papers.map((p) => p.arxiv_id));
 
-  // Layout: simple force-directed positioning
-  // Start with circular layout, then run a few iterations of force simulation
+  // Layout: circular start → force simulation
   const cx = 600;
   const cy = 400;
-  const radius = Math.max(200, nodes.length * 25);
+  const radius = Math.max(250, nodes.length * 35);
 
   for (let i = 0; i < nodes.length; i++) {
     const angle = (2 * Math.PI * i) / nodes.length;
@@ -62,18 +131,18 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
     nodes[i].y = cy + radius * Math.sin(angle);
   }
 
-  // Simple force simulation
+  // Force simulation with higher repulsion for larger nodes
   const idxMap = new Map(nodes.map((n, i) => [n.id, i]));
-  for (let iter = 0; iter < 100; iter++) {
+  for (let iter = 0; iter < 120; iter++) {
     const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
 
-    // Repulsion between all nodes
+    // Repulsion
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         let dx = nodes[j].x - nodes[i].x;
         let dy = nodes[j].y - nodes[i].y;
         const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const repulse = 50000 / (dist * dist);
+        const repulse = 120000 / (dist * dist);
         dx /= dist;
         dy /= dist;
         forces[i].fx -= dx * repulse;
@@ -91,7 +160,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
       let dx = nodes[ti].x - nodes[si].x;
       let dy = nodes[ti].y - nodes[si].y;
       const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const attract = (dist - 180) * 0.01;
+      const attract = (dist - 300) * 0.008;
       dx /= dist;
       dy /= dist;
       forces[si].fx += dx * attract;
@@ -108,13 +177,15 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
 
     // Apply forces
     for (let i = 0; i < nodes.length; i++) {
-      nodes[i].x += Math.max(-10, Math.min(10, forces[i].fx));
-      nodes[i].y += Math.max(-10, Math.min(10, forces[i].fy));
+      nodes[i].x += Math.max(-12, Math.min(12, forces[i].fx));
+      nodes[i].y += Math.max(-12, Math.min(12, forces[i].fy));
     }
   }
 
   return { nodes, edges, userPaperIds };
 }
+
+/* ── Component ── */
 
 export function PaperMap({
   papers,
@@ -123,29 +194,32 @@ export function PaperMap({
   papers: Paper[];
   treeDataList: TreeData[];
 }) {
-  const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { nodes, edges, userPaperIds } = buildGraph(papers, treeDataList);
 
-  // Re-center graph on mount and when fullscreen toggles
+  // Build lookup
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  // Re-center on mount / fullscreen toggle
   useEffect(() => {
     if (nodes.length === 0 || !containerRef.current) return;
-    // Small delay so the container has its new dimensions after fullscreen toggle
     const frame = requestAnimationFrame(() => {
       const rect = containerRef.current!.getBoundingClientRect();
       const minX = Math.min(...nodes.map((n) => n.x));
       const maxX = Math.max(...nodes.map((n) => n.x));
       const minY = Math.min(...nodes.map((n) => n.y));
       const maxY = Math.max(...nodes.map((n) => n.y));
-      const graphW = maxX - minX + 300;
-      const graphH = maxY - minY + 200;
+      const graphW = maxX - minX + NODE_W + 200;
+      const graphH = maxY - minY + NODE_H + 200;
       const scaleX = rect.width / graphW;
       const scaleY = rect.height / graphH;
       const scale = Math.min(scaleX, scaleY, 1.2);
@@ -158,7 +232,7 @@ export function PaperMap({
       });
     });
     return () => cancelAnimationFrame(frame);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, isFullscreen]);
 
   const handleWheel = useCallback(
@@ -182,6 +256,8 @@ export function PaperMap({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0) return;
+      // Don't start drag on node or popover click
+      if ((e.target as HTMLElement).closest("[data-node], [data-detail]")) return;
       setDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     },
@@ -210,7 +286,7 @@ export function PaperMap({
     );
   }
 
-  // Find connected node IDs for hover highlighting
+  // Connected set for hover highlighting
   const connectedToHovered = new Set<string>();
   if (hoveredNode) {
     connectedToHovered.add(hoveredNode);
@@ -220,8 +296,11 @@ export function PaperMap({
     }
   }
 
-  const NODE_W = 200;
-  const NODE_H = 44;
+  // Compute SVG canvas bounds
+  const svgW = Math.max(...nodes.map((n) => n.x)) + NODE_W + 400;
+  const svgH = Math.max(...nodes.map((n) => n.y)) + NODE_H + 400;
+
+  const selectedData = selectedNode ? nodeMap.get(selectedNode) : null;
 
   const mapContent = (
     <div
@@ -238,80 +317,237 @@ export function PaperMap({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <svg
-        ref={svgRef}
-        className="h-full w-full"
-        style={{ overflow: "visible" }}
+      <div
+        ref={innerRef}
+        className="relative"
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: "0 0",
+          width: svgW,
+          height: svgH,
+        }}
       >
-        <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
+        {/* SVG layer for edges */}
+        <svg
+          className="pointer-events-none absolute inset-0"
+          width={svgW}
+          height={svgH}
+        >
           {edges.map((e, i) => {
-            const s = nodes.find((n) => n.id === e.source);
-            const t = nodes.find((n) => n.id === e.target);
+            const s = nodeMap.get(e.source);
+            const t = nodeMap.get(e.target);
             if (!s || !t) return null;
-            const dimmed = hoveredNode && (!connectedToHovered.has(s.id) || !connectedToHovered.has(t.id));
+
+            const dimmed =
+              hoveredNode &&
+              (!connectedToHovered.has(s.id) || !connectedToHovered.has(t.id));
+            const highlighted =
+              hoveredNode &&
+              connectedToHovered.has(s.id) &&
+              connectedToHovered.has(t.id);
+
+            // Bezier curve from center-right/left of nodes
+            const x1 = s.x + NODE_W / 2;
+            const y1 = s.y + NODE_H / 2;
+            const x2 = t.x + NODE_W / 2;
+            const y2 = t.y + NODE_H / 2;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const cx1 = x1 + dx * 0.4;
+            const cy1 = y1;
+            const cx2 = x2 - dx * 0.4;
+            const cy2 = y2;
+
             return (
-              <line
+              <path
                 key={i}
-                x1={s.x}
-                y1={s.y}
-                x2={t.x}
-                y2={t.y}
-                stroke={dimmed ? "#f0f0f0" : "#d4d4d4"}
-                strokeWidth={1.5}
+                d={`M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`}
+                fill="none"
+                stroke={dimmed ? "#f0f0f0" : highlighted ? "#a3a3a3" : "#d4d4d4"}
+                strokeWidth={highlighted ? 2 : 1.5}
               />
             );
           })}
+        </svg>
 
-          {nodes.map((node) => {
-            const isUserPaper = userPaperIds.has(node.id);
-            const isHovered = hoveredNode === node.id;
-            const dimmed = hoveredNode && !connectedToHovered.has(node.id);
+        {/* HTML node cards */}
+        {nodes.map((node) => {
+          const isUserPaper = userPaperIds.has(node.id);
+          const isHovered = hoveredNode === node.id;
+          const dimmed = hoveredNode && !connectedToHovered.has(node.id);
+          const barColor = colorForRelationship(node.relationship);
+          const authorSnippet = firstAuthor(node.authors);
+          const yearStr = node.year && node.year > 0 ? String(node.year) : "";
+
+          return (
+            <div
+              key={node.id}
+              data-node
+              className="absolute select-none rounded-lg border transition-shadow"
+              style={{
+                left: node.x - NODE_W / 2,
+                top: node.y - NODE_H / 2,
+                width: NODE_W,
+                height: NODE_H,
+                backgroundColor: isHovered ? "#111" : isUserPaper ? "#fff" : "#fafafa",
+                borderColor: isHovered ? "#111" : isUserPaper ? "#e5e5e5" : "#f0f0f0",
+                borderWidth: 1,
+                opacity: dimmed ? 0.2 : 1,
+                cursor: "pointer",
+                zIndex: isHovered ? 12 : 10,
+                boxShadow: isHovered
+                  ? "0 4px 12px rgba(0,0,0,0.08)"
+                  : "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedNode(selectedNode === node.id ? null : node.id);
+              }}
+            >
+              {/* Left color bar */}
+              <div
+                className="absolute left-0 top-0 h-full w-1 rounded-l-lg"
+                style={{ backgroundColor: barColor }}
+              />
+              <div className="flex h-full flex-col justify-center pl-3.5 pr-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p
+                    className="text-xs font-semibold leading-snug"
+                    style={{ color: isHovered ? "#fff" : "#111" }}
+                  >
+                    {truncate(node.title, 55)}
+                  </p>
+                  {yearStr && (
+                    <span
+                      className="shrink-0 text-[11px] font-medium tabular-nums"
+                      style={{ color: isHovered ? "#a1a1aa" : "#9ca3af" }}
+                    >
+                      {yearStr}
+                    </span>
+                  )}
+                </div>
+                {authorSnippet && (
+                  <p
+                    className="mt-0.5 text-[11px]"
+                    style={{ color: isHovered ? "#a1a1aa" : "#9ca3af" }}
+                  >
+                    {truncate(authorSnippet, 45)}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Edge labels — only shown for edges connected to hovered node */}
+        {hoveredNode &&
+          edges.map((e, i) => {
+            if (e.source !== hoveredNode && e.target !== hoveredNode) return null;
+            if (!e.label) return null;
+
+            const s = nodeMap.get(e.source);
+            const t = nodeMap.get(e.target);
+            if (!s || !t) return null;
+
+            const mx = (s.x + t.x) / 2;
+            const my = (s.y + t.y) / 2;
+
             return (
-              <g
-                key={node.id}
-                transform={`translate(${node.x - NODE_W / 2},${node.y - NODE_H / 2})`}
-                onMouseEnter={() => setHoveredNode(node.id)}
-                onMouseLeave={() => setHoveredNode(null)}
-                onClick={() => {
-                  window.location.href = `/abs/${node.id}`;
+              <div
+                key={`label-${i}`}
+                className="pointer-events-none absolute select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
+                style={{
+                  left: mx,
+                  top: my,
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 15,
                 }}
-                style={{ cursor: "pointer" }}
-                opacity={dimmed ? 0.25 : 1}
               >
-                <rect
-                  width={NODE_W}
-                  height={NODE_H}
-                  rx={12}
-                  fill={isHovered ? "#111" : isUserPaper ? "#fff" : "#fafafa"}
-                  stroke={isHovered ? "#111" : isUserPaper ? "#e5e5e5" : "#f0f0f0"}
-                  strokeWidth={1}
-                />
-                <text
-                  x={NODE_W / 2}
-                  y={18}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fontWeight={500}
-                  fill={isHovered ? "#fff" : "#333"}
-                  style={{ fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
-                >
-                  {node.title.length > 28 ? node.title.slice(0, 28) + "..." : node.title}
-                </text>
-                <text
-                  x={NODE_W / 2}
-                  y={34}
-                  textAnchor="middle"
-                  fontSize={9}
-                  fill={isHovered ? "#aaa" : "#999"}
-                  style={{ fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
-                >
-                  {node.id}
-                </text>
-              </g>
+                {e.label}
+              </div>
             );
           })}
-        </g>
-      </svg>
+
+        {/* Detail popover */}
+        {selectedData && (
+          <div
+            data-detail
+            className="absolute z-20 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+            style={{
+              left: selectedData.x - NODE_W / 2,
+              top: selectedData.y + NODE_H / 2 + 10,
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-bold leading-snug text-gray-900">
+                {selectedData.title}
+              </h3>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="shrink-0 text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            {selectedData.authors && (
+              <p className="mt-1 text-xs text-gray-400">{selectedData.authors}</p>
+            )}
+            {selectedData.relevance && (
+              <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                {selectedData.relevance}
+              </p>
+            )}
+            <div className="mt-3 flex items-center gap-2">
+              {selectedData.relationship && (
+                <span
+                  className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+                  style={{
+                    backgroundColor: colorForRelationship(selectedData.relationship),
+                  }}
+                >
+                  {selectedData.relationship}
+                </span>
+              )}
+              {selectedData.year && selectedData.year > 0 && (
+                <span className="text-xs text-gray-400">{selectedData.year}</span>
+              )}
+              <a
+                href={`/abs/${selectedData.id}`}
+                className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
+              >
+                View paper
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Controls */}
       <div className="absolute bottom-3 right-3 flex gap-1">
@@ -367,7 +603,6 @@ export function PaperMap({
   if (isFullscreen) {
     return (
       <>
-        {/* Keep a placeholder so the page layout doesn't jump */}
         <div className="h-[500px]" />
         {createPortal(
           <div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>

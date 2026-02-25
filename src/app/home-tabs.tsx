@@ -9,6 +9,7 @@ type Tab = "papers" | "trees" | "map";
 interface Paper {
   arxiv_id: string;
   title: string;
+  authors?: string;
   created_at: string | null;
 }
 
@@ -125,8 +126,15 @@ function downloadJSON(filename: string, data: Record<string, unknown>) {
 
 interface TreeData {
   root: string;
-  nodes: { id: string; title: string }[];
-  edges: { source: string; target: string }[];
+  nodes: {
+    id: string;
+    title: string;
+    authors?: string;
+    year?: number;
+    relationship?: string;
+    relevance?: string;
+  }[];
+  edges: { source: string; target: string; label?: string }[];
 }
 
 export function HomeTabs({
