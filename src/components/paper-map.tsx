@@ -53,8 +53,8 @@ interface TreeData {
 
 /* ── Layout constants ── */
 
-const NODE_W = 280;
-const NODE_H = 80;
+const NODE_W = 320;
+const NODE_H = 110;
 
 /* ── Helpers ── */
 
@@ -123,7 +123,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
   // Layout: circular start → force simulation
   const cx = 600;
   const cy = 400;
-  const radius = Math.max(250, nodes.length * 35);
+  const radius = Math.max(250, nodes.length * 50);
 
   for (let i = 0; i < nodes.length; i++) {
     const angle = (2 * Math.PI * i) / nodes.length;
@@ -142,7 +142,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
         let dx = nodes[j].x - nodes[i].x;
         let dy = nodes[j].y - nodes[i].y;
         const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const repulse = 120000 / (dist * dist);
+        const repulse = 180000 / (dist * dist);
         dx /= dist;
         dy /= dist;
         forces[i].fx -= dx * repulse;
@@ -160,7 +160,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
       let dx = nodes[ti].x - nodes[si].x;
       let dy = nodes[ti].y - nodes[si].y;
       const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const attract = (dist - 300) * 0.008;
+      const attract = (dist - 400) * 0.008;
       dx /= dist;
       dy /= dist;
       forces[si].fx += dx * attract;
@@ -333,6 +333,26 @@ export function PaperMap({
           width={svgW}
           height={svgH}
         >
+          <defs>
+            {edges.map((e, i) => {
+              const targetNode = nodeMap.get(e.target);
+              const edgeColor = colorForRelationship(targetNode?.relationship);
+              return (
+                <marker
+                  key={`arrow-${i}`}
+                  id={`arrow-${i}`}
+                  viewBox="0 0 10 7"
+                  refX="10"
+                  refY="3.5"
+                  markerWidth="8"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill={edgeColor} />
+                </marker>
+              );
+            })}
+          </defs>
           {edges.map((e, i) => {
             const s = nodeMap.get(e.source);
             const t = nodeMap.get(e.target);
@@ -346,7 +366,9 @@ export function PaperMap({
               connectedToHovered.has(s.id) &&
               connectedToHovered.has(t.id);
 
-            // Bezier curve from center-right/left of nodes
+            const edgeColor = colorForRelationship(t.relationship);
+
+            // Bezier curve from center of nodes
             const x1 = s.x + NODE_W / 2;
             const y1 = s.y + NODE_H / 2;
             const x2 = t.x + NODE_W / 2;
@@ -359,13 +381,20 @@ export function PaperMap({
             const cx2 = x2 - dx * 0.4;
             const cy2 = y2;
 
+            const strokeColor = dimmed
+              ? "#f0f0f0"
+              : highlighted
+                ? edgeColor
+                : edgeColor + "88"; // semi-transparent when not hovered
+
             return (
               <path
                 key={i}
                 d={`M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`}
                 fill="none"
-                stroke={dimmed ? "#f0f0f0" : highlighted ? "#a3a3a3" : "#d4d4d4"}
-                strokeWidth={highlighted ? 2 : 1.5}
+                stroke={strokeColor}
+                strokeWidth={highlighted ? 2.5 : 2}
+                markerEnd={dimmed ? undefined : `url(#arrow-${i})`}
               />
             );
           })}
@@ -418,7 +447,7 @@ export function PaperMap({
                     className="text-xs font-semibold leading-snug"
                     style={{ color: isHovered ? "#fff" : "#111" }}
                   >
-                    {truncate(node.title, 55)}
+                    {truncate(node.title, 80)}
                   </p>
                   {yearStr && (
                     <span
@@ -437,39 +466,68 @@ export function PaperMap({
                     {truncate(authorSnippet, 45)}
                   </p>
                 )}
+                <div className="mt-1 flex items-center gap-1.5">
+                  {node.relationship && (
+                    <span
+                      className="inline-block rounded-full px-1.5 py-px text-[10px] font-medium text-white"
+                      style={{ backgroundColor: barColor }}
+                    >
+                      {node.relationship}
+                    </span>
+                  )}
+                </div>
+                {node.relevance && (
+                  <p
+                    className="mt-0.5 text-[10px] leading-snug"
+                    style={{ color: isHovered ? "#71717a" : "#a1a1aa" }}
+                  >
+                    {truncate(node.relevance, 70)}
+                  </p>
+                )}
               </div>
             </div>
           );
         })}
 
-        {/* Edge labels — only shown for edges connected to hovered node */}
-        {hoveredNode &&
-          edges.map((e, i) => {
-            if (e.source !== hoveredNode && e.target !== hoveredNode) return null;
-            if (!e.label) return null;
+        {/* Edge labels — always visible */}
+        {edges.map((e, i) => {
+          if (!e.label) return null;
 
-            const s = nodeMap.get(e.source);
-            const t = nodeMap.get(e.target);
-            if (!s || !t) return null;
+          const s = nodeMap.get(e.source);
+          const t = nodeMap.get(e.target);
+          if (!s || !t) return null;
 
-            const mx = (s.x + t.x) / 2;
-            const my = (s.y + t.y) / 2;
+          const dimmed =
+            hoveredNode &&
+            (!connectedToHovered.has(s.id) || !connectedToHovered.has(t.id));
+          const highlighted =
+            hoveredNode &&
+            connectedToHovered.has(s.id) &&
+            connectedToHovered.has(t.id);
 
-            return (
-              <div
-                key={`label-${i}`}
-                className="pointer-events-none absolute select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
-                style={{
-                  left: mx,
-                  top: my,
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 15,
-                }}
-              >
-                {e.label}
-              </div>
-            );
-          })}
+          const edgeColor = colorForRelationship(t.relationship);
+          const mx = (s.x + t.x) / 2;
+          const my = (s.y + t.y) / 2;
+
+          return (
+            <div
+              key={`label-${i}`}
+              className="pointer-events-none absolute select-none whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-medium shadow-sm"
+              style={{
+                left: mx,
+                top: my,
+                transform: "translate(-50%, -50%)",
+                zIndex: 15,
+                backgroundColor: highlighted ? edgeColor : "#fff",
+                color: highlighted ? "#fff" : edgeColor,
+                border: `1px solid ${dimmed ? "#e5e5e5" : edgeColor}`,
+                opacity: dimmed ? 0.15 : 1,
+              }}
+            >
+              {e.label}
+            </div>
+          );
+        })}
 
         {/* Detail popover */}
         {selectedData && (
