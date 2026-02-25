@@ -209,7 +209,7 @@ export function HomeTabs({
           className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "papers"
               ? "border-b-2 border-gray-900 text-gray-900"
-              : "text-gray-400 hover:text-gray-600"
+              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           Papers
@@ -219,7 +219,7 @@ export function HomeTabs({
           className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "trees"
               ? "border-b-2 border-gray-900 text-gray-900"
-              : "text-gray-400 hover:text-gray-600"
+              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           Research Trees
@@ -229,7 +229,7 @@ export function HomeTabs({
           className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "map"
               ? "border-b-2 border-gray-900 text-gray-900"
-              : "text-gray-400 hover:text-gray-600"
+              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           My Map
@@ -237,7 +237,7 @@ export function HomeTabs({
       </div>
 
       {activeTab === "map" ? (
-        <div className="mt-4">
+        <div className="mt-2">
           <PaperMap papers={paperList} treeDataList={treeDataList} />
         </div>
       ) : activeTab === "papers" ? (
