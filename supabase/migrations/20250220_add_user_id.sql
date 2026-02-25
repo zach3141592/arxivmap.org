@@ -38,3 +38,4 @@ ALTER TABLE research_tree_papers
   ADD PRIMARY KEY (tree_arxiv_id, tree_user_id, paper_arxiv_id);
 
 CREATE INDEX IF NOT EXISTS idx_rtp_user ON research_tree_papers(tree_user_id);
+

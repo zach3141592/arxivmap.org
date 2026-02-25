@@ -69,16 +69,18 @@ export default async function PaperPage({
     abstract = paper.abstract;
 
     // Save paper on first visit so it appears in the home page list
-    await serviceClient.from("paper_summaries").upsert(
+    const { error: saveError } = await serviceClient.from("paper_summaries").upsert(
       {
         arxiv_id: paperId,
         user_id: authData.user.id,
         title,
         authors,
         abstract,
+        summary: null,
       },
       { onConflict: "arxiv_id,user_id", ignoreDuplicates: true }
     );
+    if (saveError) console.error("Failed to save paper on visit:", saveError);
   }
 
   return (
