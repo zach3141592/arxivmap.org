@@ -8,21 +8,21 @@ import { createPortal } from "react-dom";
 interface TopicDef {
   label: string;
   keywords: string[];
-  color: string;     // primary color
-  glow: string;      // glow color (lighter)
-  bg: string;        // card hover tint
+  fill: string;   // light circle fill
+  stroke: string;  // circle border
+  text: string;    // label text color
 }
 
 const TOPICS: TopicDef[] = [
-  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], color: "#3b82f6", glow: "#60a5fa", bg: "#dbeafe" },
-  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], color: "#f59e0b", glow: "#fbbf24", bg: "#fef3c7" },
-  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], color: "#10b981", glow: "#34d399", bg: "#d1fae5" },
-  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], color: "#8b5cf6", glow: "#a78bfa", bg: "#ede9fe" },
-  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], color: "#ec4899", glow: "#f472b6", bg: "#fce7f3" },
-  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], color: "#ef4444", glow: "#f87171", bg: "#fee2e2" },
+  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "#f8fafc", stroke: "#e2e8f0", text: "#64748b" },
+  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "#fefce8", stroke: "#fef08a", text: "#a16207" },
+  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "#f0fdf4", stroke: "#bbf7d0", text: "#15803d" },
+  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "#faf5ff", stroke: "#e9d5ff", text: "#7e22ce" },
+  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "#fdf2f8", stroke: "#fbcfe8", text: "#be185d" },
+  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "#fef2f2", stroke: "#fecaca", text: "#dc2626" },
 ];
 
-const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], color: "#6b7280", glow: "#9ca3af", bg: "#f3f4f6" };
+const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "#f9fafb", stroke: "#e5e7eb", text: "#6b7280" };
 
 function classifyPaper(title: string): TopicDef {
   const lower = title.toLowerCase();
@@ -46,7 +46,7 @@ const CARD_W = 200;
 const CARD_H = 54;
 const RING_SPACING = 80;
 const BLOB_PAD = 80;
-const BLOB_GAP = 60;
+const BLOB_GAP = 40;
 
 /* ── Helpers ── */
 
@@ -67,7 +67,6 @@ function radialPositions(count: number): { x: number; y: number }[] {
   if (count === 0) return [];
   const positions: { x: number; y: number }[] = [];
 
-  // First paper at center
   positions.push({ x: 0, y: 0 });
   if (count === 1) return positions;
 
@@ -78,7 +77,7 @@ function radialPositions(count: number): { x: number; y: number }[] {
     const circumference = 2 * Math.PI * radius;
     const fitCount = Math.max(3, Math.floor(circumference / (CARD_W * 0.65)));
     const inRing = Math.min(fitCount, count - placed);
-    const angleOffset = ring % 2 === 0 ? 0 : Math.PI / inRing; // stagger rings
+    const angleOffset = ring % 2 === 0 ? 0 : Math.PI / inRing;
 
     for (let i = 0; i < inRing; i++) {
       const angle = (2 * Math.PI * i) / inRing - Math.PI / 2 + angleOffset;
@@ -99,7 +98,7 @@ function blobRadius(positions: { x: number; y: number }[]): number {
   return maxDist + CARD_W / 2 + BLOB_PAD;
 }
 
-/* ── Blob layout (circle packing on canvas) ── */
+/* ── Circle packing ── */
 
 interface CircleBlob {
   topic: TopicDef;
@@ -111,7 +110,6 @@ interface CircleBlob {
 }
 
 function layoutCircles(papers: Paper[]): CircleBlob[] {
-  // Group by topic
   const groups = new Map<string, { topic: TopicDef; papers: Paper[] }>();
   for (const p of papers) {
     const topic = classifyPaper(p.title);
@@ -120,7 +118,6 @@ function layoutCircles(papers: Paper[]): CircleBlob[] {
     else groups.set(topic.label, { topic, papers: [p] });
   }
 
-  // Build sized blobs
   const blobs: Omit<CircleBlob, "cx" | "cy">[] = [];
   for (const { topic, papers: paps } of groups.values()) {
     const positions = radialPositions(paps.length);
@@ -128,10 +125,8 @@ function layoutCircles(papers: Paper[]): CircleBlob[] {
     blobs.push({ topic, papers: paps, r, cardPositions: positions });
   }
 
-  // Sort largest first
   blobs.sort((a, b) => b.r - a.r);
 
-  // Place circles: simple spiral packing
   const placed: CircleBlob[] = [];
   for (const blob of blobs) {
     if (placed.length === 0) {
@@ -139,7 +134,6 @@ function layoutCircles(papers: Paper[]): CircleBlob[] {
       continue;
     }
 
-    // Try positions on a spiral until no overlap
     let bestCx = 0, bestCy = 0, found = false;
     for (let dist = 0; dist < 3000 && !found; dist += 8) {
       const steps = Math.max(1, Math.floor((2 * Math.PI * dist) / 30));
@@ -190,7 +184,6 @@ export function PaperMap({
 
   const circles = useMemo(() => layoutCircles(papers), [papers]);
 
-  // Canvas bounds
   const bounds = useMemo(() => {
     if (circles.length === 0) return { minX: -400, minY: -300, maxX: 400, maxY: 300 };
     const minX = Math.min(...circles.map((c) => c.cx - c.r)) - 50;
@@ -203,7 +196,6 @@ export function PaperMap({
   const canvasW = bounds.maxX - bounds.minX;
   const canvasH = bounds.maxY - bounds.minY;
 
-  // Auto-center on mount / fullscreen toggle
   useEffect(() => {
     if (circles.length === 0 || !containerRef.current) return;
     const frame = requestAnimationFrame(() => {
@@ -274,13 +266,10 @@ export function PaperMap({
   const mapContent = (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden ${
-        isFullscreen ? "h-screen w-screen" : "h-full rounded-2xl border border-gray-800/30"
+      className={`relative overflow-hidden bg-white ${
+        isFullscreen ? "h-screen w-screen" : "h-full rounded-2xl border border-gray-200"
       }`}
-      style={{
-        cursor: dragging ? "grabbing" : "grab",
-        background: "radial-gradient(ellipse at 50% 50%, #1a1a2e 0%, #0f0f1a 60%, #080810 100%)",
-      }}
+      style={{ cursor: dragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -288,15 +277,6 @@ export function PaperMap({
       onMouseLeave={handleMouseUp}
       onClick={() => setSelectedPaper(null)}
     >
-      {/* Subtle grid dots */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
-
       <div
         className="relative"
         style={{
@@ -304,82 +284,44 @@ export function PaperMap({
           transformOrigin: "0 0",
         }}
       >
-        {/* SVG layer for circle backgrounds */}
+        {/* SVG circles */}
         <svg
           className="pointer-events-none absolute overflow-visible"
           style={{ left: 0, top: 0, width: 1, height: 1 }}
         >
-          <defs>
-            {circles.map((c) => (
-              <radialGradient key={`grad-${c.topic.label}`} id={`grad-${c.topic.label.replace(/\s/g, "")}`}>
-                <stop offset="0%" stopColor={c.topic.color} stopOpacity="0.15" />
-                <stop offset="60%" stopColor={c.topic.color} stopOpacity="0.06" />
-                <stop offset="100%" stopColor={c.topic.color} stopOpacity="0" />
-              </radialGradient>
-            ))}
-          </defs>
           {circles.map((c) => (
-            <g key={`bg-${c.topic.label}`}>
-              {/* Outer glow */}
-              <circle
-                cx={c.cx}
-                cy={c.cy}
-                r={c.r + 20}
-                fill="none"
-                stroke={c.topic.color}
-                strokeWidth="1"
-                opacity="0.1"
-              />
-              {/* Fill gradient */}
-              <circle
-                cx={c.cx}
-                cy={c.cy}
-                r={c.r}
-                fill={`url(#grad-${c.topic.label.replace(/\s/g, "")})`}
-              />
-              {/* Border ring */}
-              <circle
-                cx={c.cx}
-                cy={c.cy}
-                r={c.r}
-                fill="none"
-                stroke={c.topic.color}
-                strokeWidth="1.5"
-                opacity="0.25"
-                strokeDasharray="4 6"
-              />
-            </g>
+            <circle
+              key={`bg-${c.topic.label}`}
+              cx={c.cx}
+              cy={c.cy}
+              r={c.r}
+              fill={c.topic.fill}
+              stroke={c.topic.stroke}
+              strokeWidth="1"
+            />
           ))}
         </svg>
 
         {/* Topic circles with cards */}
         {circles.map((circle) => (
           <div key={circle.topic.label}>
-            {/* Topic label at center */}
+            {/* Topic label */}
             <div
               className="pointer-events-none absolute flex flex-col items-center"
               style={{
                 left: circle.cx,
-                top: circle.cy - circle.r + 16,
+                top: circle.cy - circle.r + 20,
                 transform: "translateX(-50%)",
                 zIndex: 5,
               }}
             >
               <span
-                className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest backdrop-blur-sm"
-                style={{
-                  color: circle.topic.glow,
-                  background: `${circle.topic.color}18`,
-                  border: `1px solid ${circle.topic.color}30`,
-                  textShadow: `0 0 12px ${circle.topic.glow}60`,
-                }}
+                className="text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: circle.topic.text }}
               >
                 {circle.topic.label}
               </span>
-              <span
-                className="mt-1 text-[10px] font-medium"
-                style={{ color: `${circle.topic.glow}80` }}
-              >
+              <span className="text-[10px] text-gray-400">
                 {circle.papers.length} paper{circle.papers.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -396,22 +338,17 @@ export function PaperMap({
                 <div
                   key={paper.arxiv_id}
                   data-card
-                  className="absolute cursor-pointer rounded-xl transition-all duration-200"
+                  className="absolute cursor-pointer rounded-lg border bg-white transition-shadow duration-150"
                   style={{
                     left: circle.cx + pos.x - CARD_W / 2,
                     top: circle.cy + pos.y - CARD_H / 2,
                     width: CARD_W,
                     height: CARD_H,
                     zIndex: isHovered || isSelected ? 15 : 10,
-                    background: isHovered
-                      ? `linear-gradient(135deg, ${circle.topic.color}25, ${circle.topic.color}10)`
-                      : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${isHovered || isSelected ? circle.topic.color + "60" : "rgba(255,255,255,0.08)"}`,
-                    backdropFilter: "blur(8px)",
+                    borderColor: isHovered || isSelected ? circle.topic.stroke : "#e5e7eb",
                     boxShadow: isHovered
-                      ? `0 0 20px ${circle.topic.color}20, 0 4px 16px rgba(0,0,0,0.3)`
-                      : "0 2px 8px rgba(0,0,0,0.2)",
-                    transform: isHovered ? "scale(1.04)" : "scale(1)",
+                      ? "0 2px 8px rgba(0,0,0,0.08)"
+                      : "0 1px 2px rgba(0,0,0,0.04)",
                   }}
                   onMouseEnter={() => setHoveredCard(paper.arxiv_id)}
                   onMouseLeave={() => setHoveredCard(null)}
@@ -431,11 +368,11 @@ export function PaperMap({
                   }}
                 >
                   <div className="flex h-full flex-col justify-center px-3 py-1.5">
-                    <p className="text-[11px] font-semibold leading-snug text-gray-100">
+                    <p className="text-[11px] font-medium leading-snug text-gray-900">
                       {truncate(paper.title, 60)}
                     </p>
                     {author && (
-                      <p className="mt-0.5 text-[10px] text-gray-500">
+                      <p className="mt-0.5 text-[10px] text-gray-400">
                         {truncate(author, 30)}
                       </p>
                     )}
@@ -450,21 +387,17 @@ export function PaperMap({
         {selectedPaper && (
           <div
             data-detail
-            className="absolute z-20 w-72 rounded-xl border border-white/10 p-4 shadow-2xl backdrop-blur-xl"
-            style={{
-              left: selectedPos.x,
-              top: selectedPos.y,
-              background: "rgba(20,20,35,0.95)",
-            }}
+            className="absolute z-20 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+            style={{ left: selectedPos.x, top: selectedPos.y }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-bold leading-snug text-gray-100">
+              <h3 className="text-sm font-bold leading-snug text-gray-900">
                 {selectedPaper.title}
               </h3>
               <button
                 onClick={() => setSelectedPaper(null)}
-                className="shrink-0 text-gray-500 hover:text-gray-300"
+                className="shrink-0 text-gray-400 hover:text-gray-600"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -473,12 +406,12 @@ export function PaperMap({
               </button>
             </div>
             {selectedPaper.authors && (
-              <p className="mt-1 text-xs text-gray-500">{selectedPaper.authors}</p>
+              <p className="mt-1 text-xs text-gray-400">{selectedPaper.authors}</p>
             )}
             <div className="mt-3">
               <a
                 href={`/abs/${selectedPaper.arxiv_id}`}
-                className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-400 hover:text-blue-300 hover:underline"
+                className="inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
               >
                 View paper
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -494,7 +427,7 @@ export function PaperMap({
       <div className="absolute bottom-3 right-3 flex gap-1">
         <button
           onClick={() => setIsFullscreen(!isFullscreen)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:text-white"
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
         >
           {isFullscreen ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -514,13 +447,13 @@ export function PaperMap({
         </button>
         <button
           onClick={() => setZoom(Math.min(3, zoom * 1.2))}
-          className="h-7 w-7 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:text-white"
+          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
         >
           +
         </button>
         <button
           onClick={() => setZoom(Math.max(0.05, zoom * 0.8))}
-          className="h-7 w-7 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:text-white"
+          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
         >
           -
         </button>
@@ -530,7 +463,7 @@ export function PaperMap({
         <div className="absolute left-4 top-4">
           <a
             href="/"
-            className="flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-200"
+            className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
           >
             &larr;
             <img src="/arxivmap.png" alt="" className="h-5 w-5" />
