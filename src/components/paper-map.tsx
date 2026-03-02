@@ -142,7 +142,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
         let dx = nodes[j].x - nodes[i].x;
         let dy = nodes[j].y - nodes[i].y;
         const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const repulse = 180000 / (dist * dist);
+        const repulse = 300000 / (dist * dist);
         dx /= dist;
         dy /= dist;
         forces[i].fx -= dx * repulse;
@@ -160,7 +160,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
       let dx = nodes[ti].x - nodes[si].x;
       let dy = nodes[ti].y - nodes[si].y;
       const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const attract = (dist - 400) * 0.008;
+      const attract = (dist - 220) * 0.025;
       dx /= dist;
       dy /= dist;
       forces[si].fx += dx * attract;
@@ -171,18 +171,19 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
 
     // Center gravity
     for (let i = 0; i < nodes.length; i++) {
-      forces[i].fx += (cx - nodes[i].x) * 0.001;
-      forces[i].fy += (cy - nodes[i].y) * 0.001;
+      forces[i].fx += (cx - nodes[i].x) * 0.0005;
+      forces[i].fy += (cy - nodes[i].y) * 0.0005;
     }
 
     // Apply forces
     for (let i = 0; i < nodes.length; i++) {
-      nodes[i].x += Math.max(-12, Math.min(12, forces[i].fx));
-      nodes[i].y += Math.max(-12, Math.min(12, forces[i].fy));
+      nodes[i].x += Math.max(-15, Math.min(15, forces[i].fx));
+      nodes[i].y += Math.max(-15, Math.min(15, forces[i].fy));
     }
   }
 
-  return { nodes, edges, userPaperIds };
+  const rootIds = new Set(treeDataList.map((t) => t.root));
+  return { nodes, edges, userPaperIds, rootIds };
 }
 
 /* ── Component ── */
@@ -204,7 +205,7 @@ export function PaperMap({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const { nodes, edges, userPaperIds } = buildGraph(papers, treeDataList);
+  const { nodes, edges, userPaperIds, rootIds } = buildGraph(papers, treeDataList);
 
   // Build lookup
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -308,7 +309,7 @@ export function PaperMap({
       className={`relative overflow-hidden ${
         isFullscreen
           ? "h-screen w-screen bg-white"
-          : "h-[500px] rounded-2xl border border-gray-100 bg-gray-50/40"
+          : "h-full rounded-2xl border border-gray-100 bg-gray-50/40"
       }`}
       style={{ cursor: dragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
@@ -403,6 +404,7 @@ export function PaperMap({
         {/* HTML node cards */}
         {nodes.map((node) => {
           const isUserPaper = userPaperIds.has(node.id);
+          const isRoot = rootIds.has(node.id);
           const isHovered = hoveredNode === node.id;
           const dimmed = hoveredNode && !connectedToHovered.has(node.id);
           const barColor = colorForRelationship(node.relationship);
@@ -420,14 +422,16 @@ export function PaperMap({
                 width: NODE_W,
                 height: NODE_H,
                 backgroundColor: isHovered ? "#111" : isUserPaper ? "#fff" : "#fafafa",
-                borderColor: isHovered ? "#111" : isUserPaper ? "#e5e5e5" : "#f0f0f0",
-                borderWidth: 1,
+                borderColor: isHovered ? "#111" : isRoot ? "#111" : isUserPaper ? "#e5e5e5" : "#f0f0f0",
+                borderWidth: isRoot ? 2 : 1,
                 opacity: dimmed ? 0.2 : 1,
                 cursor: "pointer",
                 zIndex: isHovered ? 12 : 10,
                 boxShadow: isHovered
                   ? "0 4px 12px rgba(0,0,0,0.08)"
-                  : "0 1px 3px rgba(0,0,0,0.04)",
+                  : isRoot
+                    ? "0 2px 8px rgba(0,0,0,0.1)"
+                    : "0 1px 3px rgba(0,0,0,0.04)",
               }}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}

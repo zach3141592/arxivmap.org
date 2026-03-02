@@ -43,14 +43,14 @@ export default async function Home() {
     .select("arxiv_id, title, authors, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   const { data: recentTrees } = await serviceClient
     .from("research_trees")
     .select("arxiv_id, root_title, node_count, tree_data, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   // Backfill node_count from tree_data for trees saved before the column was populated
   const trees = (recentTrees || []).map(({ tree_data, ...rest }) => ({

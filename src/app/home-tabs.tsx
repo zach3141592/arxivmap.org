@@ -237,8 +237,10 @@ export function HomeTabs({
       </div>
 
       {activeTab === "map" ? (
-        <div className="mt-2">
-          <PaperMap papers={paperList} treeDataList={treeDataList} />
+        <div className="-mx-4 sm:-mx-6 mt-2">
+          <div className="h-[calc(100vh-200px)] min-h-[500px]">
+            <PaperMap papers={paperList} treeDataList={treeDataList} />
+          </div>
         </div>
       ) : activeTab === "papers" ? (
         paperList.length > 0 ? (
