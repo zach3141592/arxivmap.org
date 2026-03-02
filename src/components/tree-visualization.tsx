@@ -130,8 +130,9 @@ export function TreeVisualization({
       const estW = edge.label.length * 7 + 20;
       const estH = 22;
 
-      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label };
-    }).filter(Boolean) as { x: number; y: number; w: number; h: number; text: string }[];
+      const color = RELATIONSHIP_COLORS[target.node.relationship] ?? "#6b7280";
+      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label, color };
+    }).filter(Boolean) as { x: number; y: number; w: number; h: number; text: string; color: string }[];
 
     // Pass 1: nudge labels away from overlapping nodes
     for (const lbl of labels) {
@@ -276,22 +277,21 @@ export function TreeVisualization({
             const target = layoutMap.get(edge.target);
             if (!source || !target) return null;
 
-            // Source exits from bottom center, target enters at top center
             const x1 = source.x + NODE_WIDTH / 2;
             const y1 = source.y + NODE_HEIGHT;
             const x2 = target.x + NODE_WIDTH / 2;
             const y2 = target.y;
             const midY = (y1 + y2) / 2;
+            const color = RELATIONSHIP_COLORS[target.node.relationship] ?? "#6b7280";
 
-            // Cubic bezier with two control points that create a smooth S-curve
-            // CP1 goes straight down from source, CP2 goes straight up from target
             return (
               <path
                 key={`edge-${i}`}
                 d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#d1d5db"
+                stroke={color}
                 strokeWidth="1.5"
+                strokeOpacity={0.5}
               />
             );
           })}
@@ -353,12 +353,14 @@ export function TreeVisualization({
         {edgeLabels.map((lbl, i) => (
           <div
             key={`label-${i}`}
-            className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
+            className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-medium shadow-sm"
             style={{
               left: lbl.x,
               top: lbl.y,
               transform: "translate(-50%, -50%)",
               zIndex: 15,
+              borderColor: lbl.color,
+              color: lbl.color,
             }}
           >
             {lbl.text}
