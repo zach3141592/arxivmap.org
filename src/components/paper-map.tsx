@@ -53,8 +53,8 @@ interface TreeData {
 
 /* ── Layout constants ── */
 
-const NODE_W = 320;
-const NODE_H = 110;
+const NODE_W = 280;
+const NODE_H = 80;
 
 /* ── Helpers ── */
 
@@ -91,7 +91,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
     });
   }
 
-  // Enrich nodes from tree data (merge metadata like authors, year, relationship)
+  // Add ALL tree nodes (including discovered papers) and enrich metadata
   for (const tree of treeDataList) {
     for (const tn of tree.nodes) {
       const existing = nodeMap.get(tn.id);
@@ -100,11 +100,22 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
         if (!existing.year && tn.year) existing.year = tn.year;
         if (!existing.relationship && tn.relationship) existing.relationship = tn.relationship;
         if (!existing.relevance && tn.relevance) existing.relevance = tn.relevance;
+      } else {
+        nodeMap.set(tn.id, {
+          id: tn.id,
+          title: tn.title,
+          authors: tn.authors,
+          year: tn.year,
+          relationship: tn.relationship,
+          relevance: tn.relevance,
+          x: 0,
+          y: 0,
+        });
       }
     }
   }
 
-  // Collect edges — only between papers the user has saved
+  // Collect edges between all nodes present in the graph
   const edgeSet = new Set<string>();
   const edges: MapEdge[] = [];
   for (const tree of treeDataList) {
@@ -123,7 +134,7 @@ function buildGraph(papers: Paper[], treeDataList: TreeData[]) {
   // Layout: circular start → force simulation
   const cx = 600;
   const cy = 400;
-  const radius = Math.max(250, nodes.length * 50);
+  const radius = Math.max(300, nodes.length * 35);
 
   for (let i = 0; i < nodes.length; i++) {
     const angle = (2 * Math.PI * i) / nodes.length;
@@ -420,7 +431,7 @@ export function PaperMap({
                 left: node.x - NODE_W / 2,
                 top: node.y - NODE_H / 2,
                 width: NODE_W,
-                height: NODE_H,
+                minHeight: NODE_H,
                 backgroundColor: isHovered ? "#111" : isUserPaper ? "#fff" : "#fafafa",
                 borderColor: isHovered ? "#111" : isRoot ? "#111" : isUserPaper ? "#e5e5e5" : "#f0f0f0",
                 borderWidth: isRoot ? 2 : 1,
@@ -445,49 +456,39 @@ export function PaperMap({
                 className="absolute left-0 top-0 h-full w-1 rounded-l-lg"
                 style={{ backgroundColor: barColor }}
               />
-              <div className="flex h-full flex-col justify-center pl-3.5 pr-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p
-                    className="text-xs font-semibold leading-snug"
-                    style={{ color: isHovered ? "#fff" : "#111" }}
-                  >
-                    {truncate(node.title, 80)}
-                  </p>
+              <div className="flex h-full flex-col justify-center py-2.5 pl-3.5 pr-3">
+                <p
+                  className="text-[11px] font-semibold leading-snug"
+                  style={{ color: isHovered ? "#fff" : "#111" }}
+                >
+                  {truncate(node.title, 90)}
+                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  {authorSnippet && (
+                    <span
+                      className="text-[10px]"
+                      style={{ color: isHovered ? "#a1a1aa" : "#9ca3af" }}
+                    >
+                      {truncate(authorSnippet, 30)}
+                    </span>
+                  )}
                   {yearStr && (
                     <span
-                      className="shrink-0 text-[11px] font-medium tabular-nums"
+                      className="text-[10px] tabular-nums"
                       style={{ color: isHovered ? "#a1a1aa" : "#9ca3af" }}
                     >
                       {yearStr}
                     </span>
                   )}
-                </div>
-                {authorSnippet && (
-                  <p
-                    className="mt-0.5 text-[11px]"
-                    style={{ color: isHovered ? "#a1a1aa" : "#9ca3af" }}
-                  >
-                    {truncate(authorSnippet, 45)}
-                  </p>
-                )}
-                <div className="mt-1 flex items-center gap-1.5">
                   {node.relationship && (
                     <span
-                      className="inline-block rounded-full px-1.5 py-px text-[10px] font-medium text-white"
+                      className="ml-auto inline-block rounded-full px-1.5 py-px text-[9px] font-medium text-white"
                       style={{ backgroundColor: barColor }}
                     >
                       {node.relationship}
                     </span>
                   )}
                 </div>
-                {node.relevance && (
-                  <p
-                    className="mt-0.5 text-[10px] leading-snug"
-                    style={{ color: isHovered ? "#71717a" : "#a1a1aa" }}
-                  >
-                    {truncate(node.relevance, 70)}
-                  </p>
-                )}
               </div>
             </div>
           );
