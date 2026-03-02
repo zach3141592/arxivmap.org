@@ -14,15 +14,15 @@ interface TopicDef {
 }
 
 const TOPICS: TopicDef[] = [
-  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "rgba(219,234,254,0.55)", stroke: "#bfdbfe", text: "#64748b" },
-  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "rgba(254,249,195,0.5)", stroke: "#fde68a", text: "#a16207" },
-  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "rgba(209,250,229,0.5)", stroke: "#a7f3d0", text: "#15803d" },
-  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "rgba(233,213,255,0.5)", stroke: "#d8b4fe", text: "#7e22ce" },
-  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "rgba(252,231,243,0.5)", stroke: "#f9a8d4", text: "#be185d" },
-  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "rgba(254,226,226,0.5)", stroke: "#fca5a5", text: "#dc2626" },
+  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "rgba(191,219,254,0.45)", stroke: "none", text: "#475569" },
+  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "rgba(253,230,138,0.4)", stroke: "none", text: "#92400e" },
+  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "rgba(167,243,208,0.4)", stroke: "none", text: "#166534" },
+  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "rgba(216,180,254,0.4)", stroke: "none", text: "#6b21a8" },
+  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "rgba(249,168,212,0.4)", stroke: "none", text: "#9d174d" },
+  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "rgba(252,165,165,0.4)", stroke: "none", text: "#b91c1c" },
 ];
 
-const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "rgba(243,244,246,0.55)", stroke: "#d1d5db", text: "#6b7280" };
+const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "rgba(209,213,219,0.35)", stroke: "none", text: "#6b7280" };
 
 function classifyPaper(title: string): TopicDef {
   const lower = title.toLowerCase();
@@ -282,6 +282,16 @@ export function PaperMap({
       onMouseLeave={handleMouseUp}
       onClick={() => setSelectedPaper(null)}
     >
+      {/* Subtle dot grid */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(circle, #d1d5db 0.5px, transparent 0.5px)",
+          backgroundSize: "24px 24px",
+          opacity: 0.3,
+        }}
+      />
+
       <div
         className="relative"
         style={{
@@ -289,20 +299,25 @@ export function PaperMap({
           transformOrigin: "0 0",
         }}
       >
-        {/* SVG circles */}
+        {/* SVG circles with soft edges */}
         <svg
           className="pointer-events-none absolute overflow-visible"
           style={{ left: 0, top: 0, width: 1, height: 1 }}
         >
+          <defs>
+            <filter id="soft-edge" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="18" />
+            </filter>
+          </defs>
           {circles.map((c) => (
             <circle
               key={`bg-${c.topic.label}`}
               cx={c.cx}
               cy={c.cy}
-              r={c.r}
+              r={c.r - 10}
               fill={c.topic.fill}
-              stroke={c.topic.stroke}
-              strokeWidth="1"
+              stroke="none"
+              filter="url(#soft-edge)"
             />
           ))}
         </svg>
@@ -315,19 +330,19 @@ export function PaperMap({
               className="pointer-events-none absolute flex flex-col items-center"
               style={{
                 left: circle.cx,
-                top: circle.cy - circle.r + 20,
+                top: circle.cy - circle.r + 24,
                 transform: "translateX(-50%)",
-                zIndex: 5,
+                zIndex: 20,
               }}
             >
               <span
-                className="text-[11px] font-semibold uppercase tracking-wider"
+                className="rounded-full bg-white px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider shadow-sm"
                 style={{ color: circle.topic.text }}
               >
                 {circle.topic.label}
               </span>
-              <span className="text-[10px] text-gray-400">
-                {circle.papers.length} paper{circle.papers.length !== 1 ? "s" : ""}
+              <span className="mt-0.5 text-[10px] text-gray-400">
+                {circle.papers.length}
               </span>
             </div>
 
@@ -343,17 +358,17 @@ export function PaperMap({
                 <div
                   key={paper.arxiv_id}
                   data-card
-                  className="absolute cursor-pointer rounded-lg border bg-white transition-shadow duration-150"
+                  className="absolute cursor-pointer rounded-xl bg-white transition-all duration-200"
                   style={{
                     left: circle.cx + pos.x - CARD_W / 2,
                     top: circle.cy + pos.y - CARD_H / 2,
                     width: CARD_W,
                     minHeight: CARD_H,
                     zIndex: isHovered || isSelected ? 15 : 10,
-                    borderColor: isHovered || isSelected ? circle.topic.stroke : "#e5e7eb",
                     boxShadow: isHovered
-                      ? "0 2px 8px rgba(0,0,0,0.08)"
-                      : "0 1px 2px rgba(0,0,0,0.04)",
+                      ? "0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)"
+                      : "0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+                    transform: isHovered ? "translateY(-2px)" : "translateY(0)",
                   }}
                   onMouseEnter={() => setHoveredCard(paper.arxiv_id)}
                   onMouseLeave={() => setHoveredCard(null)}
@@ -372,8 +387,8 @@ export function PaperMap({
                     }
                   }}
                 >
-                  <div className="flex flex-col justify-center px-3 py-2.5">
-                    <p className="text-[12px] font-medium leading-snug text-gray-900">
+                  <div className="flex flex-col justify-center px-3.5 py-3">
+                    <p className="text-[12px] font-medium leading-snug text-gray-800">
                       {paper.title}
                     </p>
                     {author && (
@@ -392,8 +407,8 @@ export function PaperMap({
         {selectedPaper && (
           <div
             data-detail
-            className="absolute z-20 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
-            style={{ left: selectedPos.x, top: selectedPos.y }}
+            className="absolute z-20 w-72 rounded-xl bg-white p-4"
+            style={{ left: selectedPos.x, top: selectedPos.y, boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2">
