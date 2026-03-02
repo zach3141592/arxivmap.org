@@ -11,6 +11,26 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   successor: "#06b6d4",
 };
 
+// Large palette of visually distinct colors for per-edge coloring
+const EDGE_PALETTE = [
+  "#e6194b", // red
+  "#3cb44b", // green
+  "#4363d8", // blue
+  "#f58231", // orange
+  "#911eb4", // purple
+  "#42d4f4", // cyan
+  "#f032e6", // magenta
+  "#bfef45", // lime
+  "#fabed4", // pink
+  "#469990", // teal
+  "#dcbeff", // lavender
+  "#9a6324", // brown
+  "#800000", // maroon
+  "#aaffc3", // mint
+  "#808000", // olive
+  "#000075", // navy
+];
+
 const NODE_WIDTH = 320;
 const NODE_HEIGHT = 60;
 const ROW_GAP = 200;
@@ -113,10 +133,67 @@ export function TreeVisualization({
     return map;
   }, [layouts]);
 
+  // Assign unique colors to edges — adjacent/crossing edges get different colors
+  const edgeColors = useMemo(() => {
+    const n = tree.edges.length;
+    // Build conflict graph: edges that share a node or whose paths cross/are close
+    const conflicts: Set<number>[] = Array.from({ length: n }, () => new Set());
+
+    // Helper: get edge endpoints
+    const endpoints = tree.edges.map((edge) => {
+      const s = layoutMap.get(edge.source);
+      const t = layoutMap.get(edge.target);
+      if (!s || !t) return null;
+      return {
+        x1: s.x + NODE_WIDTH / 2, y1: s.y + NODE_HEIGHT,
+        x2: t.x + NODE_WIDTH / 2, y2: t.y,
+        source: edge.source, target: edge.target,
+      };
+    });
+
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = endpoints[i];
+        const b = endpoints[j];
+        if (!a || !b) continue;
+
+        // Conflict if they share a node
+        const sharesNode =
+          a.source === b.source || a.source === b.target ||
+          a.target === b.source || a.target === b.target;
+
+        // Conflict if their midpoints are close (paths likely cross or run parallel)
+        const midAx = (a.x1 + a.x2) / 2, midAy = (a.y1 + a.y2) / 2;
+        const midBx = (b.x1 + b.x2) / 2, midBy = (b.y1 + b.y2) / 2;
+        const dist = Math.hypot(midAx - midBx, midAy - midBy);
+        const close = dist < 300;
+
+        if (sharesNode || close) {
+          conflicts[i].add(j);
+          conflicts[j].add(i);
+        }
+      }
+    }
+
+    // Greedy graph coloring
+    const colors: number[] = new Array(n).fill(-1);
+    for (let i = 0; i < n; i++) {
+      const usedColors = new Set<number>();
+      for (const j of conflicts[i]) {
+        if (colors[j] >= 0) usedColors.add(colors[j]);
+      }
+      let c = 0;
+      while (usedColors.has(c)) c++;
+      colors[i] = c;
+    }
+
+    return colors.map((c) => EDGE_PALETTE[c % EDGE_PALETTE.length]);
+  }, [tree.edges, layoutMap]);
+
   // Pre-compute edge label positions with collision resolution
   const edgeLabels = useMemo(() => {
     const margin = 6;
-    const labels = tree.edges.map((edge) => {
+    const labels = tree.edges.map((edge, idx) => {
       const source = layoutMap.get(edge.source);
       const target = layoutMap.get(edge.target);
       if (!source || !target) return null;
@@ -130,8 +207,7 @@ export function TreeVisualization({
       const estW = edge.label.length * 7 + 20;
       const estH = 22;
 
-      const color = RELATIONSHIP_COLORS[target.node.relationship] ?? "#6b7280";
-      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label, color };
+      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label, color: edgeColors[idx] };
     }).filter(Boolean) as { x: number; y: number; w: number; h: number; text: string; color: string }[];
 
     // Pass 1: nudge labels away from overlapping nodes
@@ -190,7 +266,7 @@ export function TreeVisualization({
     }
 
     return labels;
-  }, [tree.edges, layoutMap, layouts]);
+  }, [tree.edges, layoutMap, layouts, edgeColors]);
 
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
   const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
@@ -282,16 +358,15 @@ export function TreeVisualization({
             const x2 = target.x + NODE_WIDTH / 2;
             const y2 = target.y;
             const midY = (y1 + y2) / 2;
-            const color = RELATIONSHIP_COLORS[target.node.relationship] ?? "#6b7280";
 
             return (
               <path
                 key={`edge-${i}`}
                 d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
-                stroke={color}
-                strokeWidth="1.5"
-                strokeOpacity={0.5}
+                stroke={edgeColors[i]}
+                strokeWidth="2"
+                strokeOpacity={0.7}
               />
             );
           })}
