@@ -14,15 +14,15 @@ interface TopicDef {
 }
 
 const TOPICS: TopicDef[] = [
-  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "#f8fafc", stroke: "#e2e8f0", text: "#64748b" },
-  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "#fefce8", stroke: "#fef08a", text: "#a16207" },
-  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "#f0fdf4", stroke: "#bbf7d0", text: "#15803d" },
-  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "#faf5ff", stroke: "#e9d5ff", text: "#7e22ce" },
-  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "#fdf2f8", stroke: "#fbcfe8", text: "#be185d" },
-  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "#fef2f2", stroke: "#fecaca", text: "#dc2626" },
+  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "rgba(219,234,254,0.55)", stroke: "#bfdbfe", text: "#64748b" },
+  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "rgba(254,249,195,0.5)", stroke: "#fde68a", text: "#a16207" },
+  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "rgba(209,250,229,0.5)", stroke: "#a7f3d0", text: "#15803d" },
+  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "rgba(233,213,255,0.5)", stroke: "#d8b4fe", text: "#7e22ce" },
+  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "rgba(252,231,243,0.5)", stroke: "#f9a8d4", text: "#be185d" },
+  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "rgba(254,226,226,0.5)", stroke: "#fca5a5", text: "#dc2626" },
 ];
 
-const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "#f9fafb", stroke: "#e5e7eb", text: "#6b7280" };
+const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "rgba(243,244,246,0.55)", stroke: "#d1d5db", text: "#6b7280" };
 
 function classifyPaper(title: string): TopicDef {
   const lower = title.toLowerCase();
@@ -42,11 +42,11 @@ interface Paper {
 
 /* ── Layout constants ── */
 
-const CARD_W = 200;
-const CARD_H = 54;
-const RING_SPACING = 80;
-const BLOB_PAD = 80;
-const BLOB_GAP = 40;
+const CARD_W = 240;
+const CARD_H = 76;
+const RING_SPACING = 100;
+const BLOB_PAD = 70;
+const BLOB_OVERLAP = 40; // positive = circles overlap (Venn style)
 
 /* ── Helpers ── */
 
@@ -134,24 +134,29 @@ function layoutCircles(papers: Paper[]): CircleBlob[] {
       continue;
     }
 
+    // Place circles so they overlap by BLOB_OVERLAP (Venn style)
+    // but keep paper cards from colliding across blobs
+    const minDist = blob.r + placed[0].r - BLOB_OVERLAP;
     let bestCx = 0, bestCy = 0, found = false;
-    for (let dist = 0; dist < 3000 && !found; dist += 8) {
+    for (let dist = minDist; dist < 3000 && !found; dist += 8) {
       const steps = Math.max(1, Math.floor((2 * Math.PI * dist) / 30));
       for (let s = 0; s < steps && !found; s++) {
         const angle = (2 * Math.PI * s) / steps;
         const tx = dist * Math.cos(angle);
         const ty = dist * Math.sin(angle);
-        let overlaps = false;
+        let tooClose = false;
         for (const p of placed) {
           const dx = tx - p.cx;
           const dy = ty - p.cy;
           const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < blob.r + p.r + BLOB_GAP) {
-            overlaps = true;
+          // Cards live within ~(r - BLOB_PAD) of center; keep card zones apart
+          const cardZone = (blob.r - BLOB_PAD + 20) + (p.r - BLOB_PAD + 20);
+          if (d < cardZone) {
+            tooClose = true;
             break;
           }
         }
-        if (!overlaps) {
+        if (!tooClose) {
           bestCx = tx;
           bestCy = ty;
           found = true;
@@ -343,7 +348,7 @@ export function PaperMap({
                     left: circle.cx + pos.x - CARD_W / 2,
                     top: circle.cy + pos.y - CARD_H / 2,
                     width: CARD_W,
-                    height: CARD_H,
+                    minHeight: CARD_H,
                     zIndex: isHovered || isSelected ? 15 : 10,
                     borderColor: isHovered || isSelected ? circle.topic.stroke : "#e5e7eb",
                     boxShadow: isHovered
@@ -367,13 +372,13 @@ export function PaperMap({
                     }
                   }}
                 >
-                  <div className="flex h-full flex-col justify-center px-3 py-1.5">
-                    <p className="text-[11px] font-medium leading-snug text-gray-900">
-                      {truncate(paper.title, 60)}
+                  <div className="flex flex-col justify-center px-3 py-2.5">
+                    <p className="text-[12px] font-medium leading-snug text-gray-900">
+                      {paper.title}
                     </p>
                     {author && (
-                      <p className="mt-0.5 text-[10px] text-gray-400">
-                        {truncate(author, 30)}
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        {author}
                       </p>
                     )}
                   </div>
