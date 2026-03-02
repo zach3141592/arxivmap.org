@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import type { ResearchTree, TreeNode } from "@/lib/research-tree";
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -97,6 +97,7 @@ export function TreeVisualization({
 }) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 });
   const panOrigin = useRef({ x: 0, y: 0 });
@@ -111,6 +112,84 @@ export function TreeVisualization({
     }
     return map;
   }, [layouts]);
+
+  // Pre-compute edge label positions with collision resolution
+  const edgeLabels = useMemo(() => {
+    const margin = 6;
+    const labels = tree.edges.map((edge) => {
+      const source = layoutMap.get(edge.source);
+      const target = layoutMap.get(edge.target);
+      if (!source || !target) return null;
+
+      const x1 = source.x + NODE_WIDTH / 2;
+      const y1 = source.y + NODE_HEIGHT;
+      const x2 = target.x + NODE_WIDTH / 2;
+      const y2 = target.y;
+      const midY = (y1 + y2) / 2;
+
+      const estW = edge.label.length * 7 + 20;
+      const estH = 22;
+
+      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label };
+    }).filter(Boolean) as { x: number; y: number; w: number; h: number; text: string }[];
+
+    // Pass 1: nudge labels away from overlapping nodes
+    for (const lbl of labels) {
+      for (const l of layouts) {
+        const nLeft = l.x - margin;
+        const nRight = l.x + NODE_WIDTH + margin;
+        const nTop = l.y - margin;
+        const nBottom = l.y + NODE_HEIGHT + margin;
+
+        const lLeft = lbl.x - lbl.w / 2;
+        const lRight = lbl.x + lbl.w / 2;
+        const lTop = lbl.y - lbl.h / 2;
+        const lBottom = lbl.y + lbl.h / 2;
+
+        if (lRight > nLeft && lLeft < nRight && lBottom > nTop && lTop < nBottom) {
+          // Pick shorter displacement axis
+          const pushRight = nRight + lbl.w / 2 + margin - lbl.x;
+          const pushLeft = lbl.x - (nLeft - lbl.w / 2 - margin);
+          const pushDown = nBottom + lbl.h / 2 + margin - lbl.y;
+          const pushUp = lbl.y - (nTop - lbl.h / 2 - margin);
+          const minH = Math.min(Math.abs(pushRight), Math.abs(pushLeft));
+          const minV = Math.min(Math.abs(pushDown), Math.abs(pushUp));
+
+          if (minH <= minV) {
+            lbl.x += Math.abs(pushRight) < Math.abs(pushLeft) ? pushRight : -pushLeft;
+          } else {
+            lbl.y += Math.abs(pushDown) < Math.abs(pushUp) ? pushDown : -pushUp;
+          }
+        }
+      }
+    }
+
+    // Pass 2: push overlapping labels apart (3 iterations)
+    for (let iter = 0; iter < 3; iter++) {
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          const a = labels[i];
+          const b = labels[j];
+          const overlapX = (a.w / 2 + b.w / 2 + margin) - Math.abs(a.x - b.x);
+          const overlapY = (a.h / 2 + b.h / 2 + margin) - Math.abs(a.y - b.y);
+          if (overlapX > 0 && overlapY > 0) {
+            // Push apart along axis of least overlap
+            if (overlapX < overlapY) {
+              const shift = overlapX / 2;
+              if (a.x < b.x) { a.x -= shift; b.x += shift; }
+              else { a.x += shift; b.x -= shift; }
+            } else {
+              const shift = overlapY / 2;
+              if (a.y < b.y) { a.y -= shift; b.y += shift; }
+              else { a.y += shift; b.y -= shift; }
+            }
+          }
+        }
+      }
+    }
+
+    return labels;
+  }, [tree.edges, layoutMap, layouts]);
 
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
   const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
@@ -137,6 +216,34 @@ export function TreeVisualization({
     isPanning.current = false;
   }, []);
 
+  // Non-passive wheel listener so preventDefault() works (React onWheel is passive)
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const curZoom = zoomRef.current;
+      const curPan = panRef.current;
+      const newZoom = Math.max(0.1, Math.min(3, curZoom * delta));
+      setPan({
+        x: mouseX - (mouseX - curPan.x) * (newZoom / curZoom),
+        y: mouseY - (mouseY - curPan.y) * (newZoom / curZoom),
+      });
+      setZoom(newZoom);
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
+
   const selectedLayout = selectedNode ? layoutMap.get(selectedNode.id) : null;
 
   return (
@@ -152,7 +259,8 @@ export function TreeVisualization({
       <div
         className="relative"
         style={{
-          transform: `translate(${pan.x}px, ${pan.y}px)`,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: "0 0",
           width: maxX,
           height: maxY,
         }}
@@ -242,70 +350,20 @@ export function TreeVisualization({
         })}
 
         {/* Edge labels — rendered after nodes so they always appear on top */}
-        {tree.edges.map((edge, i) => {
-          const source = layoutMap.get(edge.source);
-          const target = layoutMap.get(edge.target);
-          if (!source || !target) return null;
-
-          const x1 = source.x + NODE_WIDTH / 2;
-          const y1 = source.y + NODE_HEIGHT;
-          const x2 = target.x + NODE_WIDTH / 2;
-          const y2 = target.y;
-
-          // Cubic bezier midpoint: C(x1,midY, x2,midY)
-          const midY = (y1 + y2) / 2;
-          let labelX = (x1 + x2) / 2;
-          let labelY = midY;
-
-          // Estimate label size (approx 7px per char + 20px padding, 22px tall)
-          const estW = edge.label.length * 7 + 20;
-          const estH = 22;
-          const labelLeft = labelX - estW / 2;
-          const labelRight = labelX + estW / 2;
-          const labelTop = labelY - estH / 2;
-          const labelBottom = labelY + estH / 2;
-          const margin = 6;
-
-          // Check overlap with every node and nudge if needed
-          for (const l of layouts) {
-            const nLeft = l.x - margin;
-            const nRight = l.x + NODE_WIDTH + margin;
-            const nTop = l.y - margin;
-            const nBottom = l.y + NODE_HEIGHT + margin;
-
-            const overlapsX = labelRight > nLeft && labelLeft < nRight;
-            const overlapsY = labelBottom > nTop && labelTop < nBottom;
-
-            if (overlapsX && overlapsY) {
-              // Nudge horizontally: push label to whichever side of the node is closer
-              const pushRight = nRight + estW / 2 + margin;
-              const pushLeft = nLeft - estW / 2 - margin;
-              if (Math.abs(pushRight - labelX) < Math.abs(pushLeft - labelX)) {
-                labelX = pushRight;
-              } else {
-                labelX = pushLeft;
-              }
-            }
-          }
-
-          // Compute the point on the curve closest to the label for visual connection
-          // The curve passes through (labelX_original, midY) so the label is always near the line
-
-          return (
-            <div
-              key={`label-${i}`}
-              className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
-              style={{
-                left: labelX,
-                top: labelY,
-                transform: "translate(-50%, -50%)",
-                zIndex: 15,
-              }}
-            >
-              {edge.label}
-            </div>
-          );
-        })}
+        {edgeLabels.map((lbl, i) => (
+          <div
+            key={`label-${i}`}
+            className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-sm"
+            style={{
+              left: lbl.x,
+              top: lbl.y,
+              transform: "translate(-50%, -50%)",
+              zIndex: 15,
+            }}
+          >
+            {lbl.text}
+          </div>
+        ))}
 
         {/* Detail popover */}
         {selectedNode && selectedLayout && (
@@ -380,6 +438,22 @@ export function TreeVisualization({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Zoom buttons */}
+      <div className="absolute bottom-4 right-4 flex flex-col gap-1">
+        <button
+          onClick={() => setZoom(Math.min(3, zoom * 1.2))}
+          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+        >
+          +
+        </button>
+        <button
+          onClick={() => setZoom(Math.max(0.1, zoom * 0.8))}
+          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+        >
+          -
+        </button>
       </div>
     </div>
   );
