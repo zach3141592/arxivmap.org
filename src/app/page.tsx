@@ -63,6 +63,13 @@ export default async function Home() {
     .filter((t) => t.tree_data)
     .map((t) => t.tree_data);
 
+  // Fetch cached paper map
+  const { data: mapRow } = await serviceClient
+    .from("paper_maps")
+    .select("map_data, paper_count")
+    .eq("user_id", user.id)
+    .single();
+
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
@@ -93,6 +100,8 @@ export default async function Home() {
           papers={recentPapers || []}
           trees={trees}
           treeDataList={treeDataList}
+          cachedMap={mapRow?.map_data ?? null}
+          mapIsStale={mapRow ? mapRow.paper_count !== (recentPapers?.length ?? 0) : (recentPapers?.length ?? 0) > 0}
         />
       </main>
     </div>

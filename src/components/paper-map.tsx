@@ -2,35 +2,14 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-
-/* ── Topic classification ── */
-
-interface TopicDef {
-  label: string;
-  keywords: string[];
-  fill: string;   // light circle fill
-  stroke: string;  // circle border
-  text: string;    // label text color
-}
-
-const TOPICS: TopicDef[] = [
-  { label: "Reinforcement Learning", keywords: ["reinforcement", "reward", "policy"], fill: "rgba(191,219,254,0.45)", stroke: "none", text: "#475569" },
-  { label: "Reasoning", keywords: ["reasoning", "chain-of-thought", "thought", "logic"], fill: "rgba(253,230,138,0.4)", stroke: "none", text: "#92400e" },
-  { label: "Interpretability", keywords: ["interpret", "explain", "mechanistic", "spectral"], fill: "rgba(167,243,208,0.4)", stroke: "none", text: "#166534" },
-  { label: "Language Models", keywords: ["language model", "llm", "transformer", "diffusion"], fill: "rgba(216,180,254,0.4)", stroke: "none", text: "#6b21a8" },
-  { label: "Agents", keywords: ["agent", "autonomous", "tool", "mcp"], fill: "rgba(249,168,212,0.4)", stroke: "none", text: "#9d174d" },
-  { label: "Safety", keywords: ["safety", "alignment", "adversarial", "robustness"], fill: "rgba(252,165,165,0.4)", stroke: "none", text: "#b91c1c" },
-];
-
-const OTHER_TOPIC: TopicDef = { label: "Other", keywords: [], fill: "rgba(209,213,219,0.35)", stroke: "none", text: "#6b7280" };
-
-function classifyPaper(title: string): TopicDef {
-  const lower = title.toLowerCase();
-  for (const topic of TOPICS) {
-    if (topic.keywords.some((kw) => lower.includes(kw))) return topic;
-  }
-  return OTHER_TOPIC;
-}
+import {
+  CARD_W,
+  CARD_H,
+  radialPositions,
+  blobRadius,
+  packCircles,
+} from "@/lib/map-layout";
+import type { StoredMapData } from "@/lib/paper-map-ai";
 
 /* ── Types ── */
 
@@ -40,20 +19,7 @@ interface Paper {
   authors?: string;
 }
 
-/* ── Layout constants ── */
-
-const CARD_W = 240;
-const CARD_H = 76;
-const RING_SPACING = 100;
-const BLOB_PAD = 70;
-const BLOB_OVERLAP = 40; // positive = circles overlap (Venn style)
-
 /* ── Helpers ── */
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max - 1) + "\u2026";
-}
 
 function firstAuthor(authors?: string): string {
   if (!authors) return "";
@@ -61,121 +27,14 @@ function firstAuthor(authors?: string): string {
   return authors.includes(",") ? `${first} et al.` : first;
 }
 
-/* ── Radial paper positions inside a circle ── */
-
-function radialPositions(count: number): { x: number; y: number }[] {
-  if (count === 0) return [];
-  const positions: { x: number; y: number }[] = [];
-
-  positions.push({ x: 0, y: 0 });
-  if (count === 1) return positions;
-
-  let placed = 1;
-  let ring = 1;
-  while (placed < count) {
-    const radius = ring * RING_SPACING;
-    const circumference = 2 * Math.PI * radius;
-    const fitCount = Math.max(3, Math.floor(circumference / (CARD_W * 0.65)));
-    const inRing = Math.min(fitCount, count - placed);
-    const angleOffset = ring % 2 === 0 ? 0 : Math.PI / inRing;
-
-    for (let i = 0; i < inRing; i++) {
-      const angle = (2 * Math.PI * i) / inRing - Math.PI / 2 + angleOffset;
-      positions.push({
-        x: radius * Math.cos(angle),
-        y: radius * Math.sin(angle),
-      });
-      placed++;
-    }
-    ring++;
-  }
-  return positions;
-}
-
-function blobRadius(positions: { x: number; y: number }[]): number {
-  if (positions.length === 0) return 100;
-  const maxDist = Math.max(...positions.map((p) => Math.sqrt(p.x * p.x + p.y * p.y)));
-  return maxDist + CARD_W / 2 + BLOB_PAD;
-}
-
-/* ── Circle packing ── */
-
-interface CircleBlob {
-  topic: TopicDef;
-  papers: Paper[];
-  cx: number;
-  cy: number;
-  r: number;
-  cardPositions: { x: number; y: number }[];
-}
-
-function layoutCircles(papers: Paper[]): CircleBlob[] {
-  const groups = new Map<string, { topic: TopicDef; papers: Paper[] }>();
-  for (const p of papers) {
-    const topic = classifyPaper(p.title);
-    const existing = groups.get(topic.label);
-    if (existing) existing.papers.push(p);
-    else groups.set(topic.label, { topic, papers: [p] });
-  }
-
-  const blobs: Omit<CircleBlob, "cx" | "cy">[] = [];
-  for (const { topic, papers: paps } of groups.values()) {
-    const positions = radialPositions(paps.length);
-    const r = blobRadius(positions);
-    blobs.push({ topic, papers: paps, r, cardPositions: positions });
-  }
-
-  blobs.sort((a, b) => b.r - a.r);
-
-  const placed: CircleBlob[] = [];
-  for (const blob of blobs) {
-    if (placed.length === 0) {
-      placed.push({ ...blob, cx: 0, cy: 0 });
-      continue;
-    }
-
-    // Place circles so they overlap by BLOB_OVERLAP (Venn style)
-    // but keep paper cards from colliding across blobs
-    const minDist = blob.r + placed[0].r - BLOB_OVERLAP;
-    let bestCx = 0, bestCy = 0, found = false;
-    for (let dist = minDist; dist < 3000 && !found; dist += 8) {
-      const steps = Math.max(1, Math.floor((2 * Math.PI * dist) / 30));
-      for (let s = 0; s < steps && !found; s++) {
-        const angle = (2 * Math.PI * s) / steps;
-        const tx = dist * Math.cos(angle);
-        const ty = dist * Math.sin(angle);
-        let tooClose = false;
-        for (const p of placed) {
-          const dx = tx - p.cx;
-          const dy = ty - p.cy;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          // Cards live within ~(r - BLOB_PAD) of center; keep card zones apart
-          const cardZone = (blob.r - BLOB_PAD + 20) + (p.r - BLOB_PAD + 20);
-          if (d < cardZone) {
-            tooClose = true;
-            break;
-          }
-        }
-        if (!tooClose) {
-          bestCx = tx;
-          bestCy = ty;
-          found = true;
-        }
-      }
-    }
-    placed.push({ ...blob, cx: bestCx, cy: bestCy });
-  }
-
-  return placed;
-}
-
 /* ── Component ── */
 
 export function PaperMap({
   papers,
+  cachedMap,
 }: {
   papers: Paper[];
-  treeDataList?: unknown[];
+  cachedMap?: StoredMapData | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -187,7 +46,27 @@ export function PaperMap({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
-  const circles = useMemo(() => layoutCircles(papers), [papers]);
+  const circles = useMemo(() => {
+    if (cachedMap) {
+      return cachedMap.topics.map((topic) => ({
+        topic: { label: topic.label, keywords: [], fill: topic.fill, stroke: topic.stroke, text: topic.text },
+        papers: topic.paper_ids.map((id) => papers.find((p) => p.arxiv_id === id)).filter((p): p is Paper => !!p),
+        cx: topic.cx,
+        cy: topic.cy,
+        r: topic.r,
+        cardPositions: topic.cardPositions,
+      }));
+    }
+    // Fallback: single blob with all papers (no keyword classification)
+    const positions = radialPositions(papers.length);
+    const r = blobRadius(positions);
+    return packCircles([{
+      topic: { label: "Papers", keywords: [], fill: "rgba(209,213,219,0.35)", stroke: "none", text: "#6b7280" },
+      papers,
+      r,
+      cardPositions: positions,
+    }]);
+  }, [cachedMap, papers]);
 
   const bounds = useMemo(() => {
     if (circles.length === 0) return { minX: -400, minY: -300, maxX: 400, maxY: 300 };
