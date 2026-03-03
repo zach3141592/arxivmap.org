@@ -83,7 +83,7 @@ export function TreePageContent({
         </div>
 
         {chatOpen && (
-          <aside className="relative h-full shrink-0 bg-white" style={{ width: chatWidth }}>
+          <aside className="absolute right-0 top-0 z-20 h-full shadow-lg bg-white" style={{ width: chatWidth }}>
             <div
               className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize hover:bg-gray-300 active:bg-gray-400 transition-colors"
               onPointerDown={(e) => {
