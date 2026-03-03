@@ -323,15 +323,29 @@ export function PaperMap({
         </svg>
 
         {/* Topic circles with cards */}
-        {circles.map((circle) => (
+        {circles.map((circle) => {
+          // Find the direction away from other circles for label placement
+          const awayDir = (() => {
+            let dx = 0, dy = 0;
+            for (const other of circles) {
+              if (other === circle) continue;
+              dx += circle.cx - other.cx;
+              dy += circle.cy - other.cy;
+            }
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) return { x: 0, y: -1 }; // default: top
+            return { x: dx / len, y: dy / len };
+          })();
+
+          return (
           <div key={circle.topic.label}>
             {/* Topic label */}
             <div
               className="pointer-events-none absolute flex flex-col items-center"
               style={{
-                left: circle.cx,
-                top: circle.cy - circle.r + 24,
-                transform: "translateX(-50%)",
+                left: circle.cx + awayDir.x * (circle.r - 24),
+                top: circle.cy + awayDir.y * (circle.r - 24),
+                transform: "translate(-50%, -50%)",
                 zIndex: 20,
               }}
             >
@@ -401,7 +415,8 @@ export function PaperMap({
               );
             })}
           </div>
-        ))}
+          );
+        })}
 
         {/* Detail popover */}
         {selectedPaper && (
