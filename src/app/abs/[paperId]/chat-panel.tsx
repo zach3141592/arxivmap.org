@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -105,7 +106,31 @@ export function ChatPanel({ abstract }: { abstract: string }) {
               ) : (
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-gray-50 px-4 py-2.5 text-sm leading-relaxed text-gray-700">
-                    {msg.content || (
+                    {msg.content ? (
+                      <div className="chat-markdown">
+                        <ReactMarkdown
+                          components={{
+                            h3: ({ children }) => <h3 className="mb-1 mt-3 text-sm font-semibold text-gray-900 first:mt-0">{children}</h3>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                            ul: ({ children }) => <ul className="mb-2 ml-4 list-disc space-y-0.5 last:mb-0">{children}</ul>,
+                            ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal space-y-0.5 last:mb-0">{children}</ol>,
+                            li: ({ children }) => <li className="pl-0.5">{children}</li>,
+                            code: ({ className, children }) => {
+                              const isBlock = className?.includes("language-");
+                              return isBlock ? (
+                                <code className="block overflow-x-auto rounded-lg bg-gray-800 p-3 text-xs text-gray-100">{children}</code>
+                              ) : (
+                                <code className="rounded bg-gray-200 px-1 py-0.5 text-xs font-mono text-gray-800">{children}</code>
+                              );
+                            },
+                            pre: ({ children }) => <pre className="mb-2 last:mb-0">{children}</pre>,
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
                       <span className="inline-flex items-center gap-1">
                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-gray-300" />
                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-gray-300 [animation-delay:0.2s]" />

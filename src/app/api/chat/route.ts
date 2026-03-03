@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const stream = anthropic.messages.stream({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 1024,
-    system: `You are a helpful research assistant. The user is reading an academic paper with the following abstract:\n\n${abstract}\n\nAnswer their questions about this paper. Be concise and accurate.`,
+    system: `You are a helpful research assistant. The user is reading an academic paper with the following abstract:\n\n${abstract}\n\nAnswer their questions about this paper. Be concise and accurate. Format your responses using markdown for readability: use **bold** for key terms, bullet points for lists, numbered lists for steps or sequences, \`code\` for technical terms or equations, and headings (### only) to organize longer answers. Keep answers focused and well-structured.`,
     messages,
   });
 
