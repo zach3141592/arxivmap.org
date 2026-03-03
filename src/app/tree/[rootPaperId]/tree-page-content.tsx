@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { TreeVisualization } from "@/components/tree-visualization";
 import { ChatPanel } from "@/app/abs/[paperId]/chat-panel";
 import type { ResearchTree } from "@/lib/research-tree";
@@ -30,7 +30,28 @@ export function TreePageContent({
   tree: ResearchTree;
 }) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatWidth, setChatWidth] = useState(400);
+  const chatDragRef = useRef(false);
+  const chatDragStartX = useRef(0);
+  const chatDragStartW = useRef(400);
   const chatContext = buildTreeContext(tree, rootTitle);
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      if (!chatDragRef.current) return;
+      const newWidth = Math.min(700, Math.max(280, chatDragStartW.current + (chatDragStartX.current - e.clientX)));
+      setChatWidth(newWidth);
+    };
+    const onPointerUp = () => {
+      chatDragRef.current = false;
+    };
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    return () => {
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -62,8 +83,19 @@ export function TreePageContent({
         </div>
 
         {chatOpen && (
-          <aside className="h-full w-[400px] shrink-0 border-l border-gray-100 bg-white">
-            <ChatPanel abstract={chatContext} />
+          <aside className="relative h-full shrink-0 bg-white" style={{ width: chatWidth }}>
+            <div
+              className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize hover:bg-gray-300 active:bg-gray-400 transition-colors"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                chatDragRef.current = true;
+                chatDragStartX.current = e.clientX;
+                chatDragStartW.current = chatWidth;
+              }}
+            />
+            <div className="h-full border-l border-gray-100">
+              <ChatPanel abstract={chatContext} />
+            </div>
           </aside>
         )}
       </div>
