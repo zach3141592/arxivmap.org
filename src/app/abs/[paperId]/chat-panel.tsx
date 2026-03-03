@@ -1,16 +1,39 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-export function ChatPanel({ abstract }: { abstract: string }) {
+export function ChatPanel({ abstract, contextId }: { abstract: string; contextId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load saved messages on mount
+  useEffect(() => {
+    if (!contextId) { setLoaded(true); return; }
+    fetch(`/api/chat/history?contextId=${encodeURIComponent(contextId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.messages?.length) setMessages(data.messages);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [contextId]);
+
+  // Save messages after streaming completes
+  const saveMessages = useCallback((msgs: Message[]) => {
+    if (!contextId || msgs.length === 0) return;
+    fetch("/api/chat/history", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contextId, messages: msgs }),
+    }).catch(() => {});
+  }, [contextId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -63,6 +86,9 @@ export function ChatPanel({ abstract }: { abstract: string }) {
           { role: "assistant", content: snapshot },
         ]);
       }
+
+      const finalMessages = [...updatedMessages, { role: "assistant" as const, content: assistantContent }];
+      saveMessages(finalMessages);
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
@@ -81,10 +107,35 @@ export function ChatPanel({ abstract }: { abstract: string }) {
     }
   }
 
+  function clearChat() {
+    setMessages([]);
+    if (contextId) {
+      fetch("/api/chat/history", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contextId, messages: [] }),
+      }).catch(() => {});
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
+      {messages.length > 0 && !isStreaming && (
+        <div className="flex justify-end border-b border-gray-100 px-3 py-1.5">
+          <button
+            onClick={clearChat}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Clear chat
+          </button>
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5">
-        {messages.length === 0 && (
+        {!loaded ? (
+          <div className="flex h-full items-center justify-center">
+            <span className="text-xs text-gray-300">Loading...</span>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <p className="text-sm font-medium text-gray-400">
               Ask a question
@@ -93,7 +144,7 @@ export function ChatPanel({ abstract }: { abstract: string }) {
               Ask anything about this paper&apos;s methods, results, or implications.
             </p>
           </div>
-        )}
+        ) : null}
         <div className="space-y-3">
           {messages.map((msg, i) => (
             <div key={i}>

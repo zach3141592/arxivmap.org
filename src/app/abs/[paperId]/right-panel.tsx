@@ -46,7 +46,7 @@ export function RightPanel({
 
       <div className="flex-1 overflow-hidden">
         {activeTab === "chat" ? (
-          <ChatPanel abstract={abstract} />
+          <ChatPanel abstract={abstract} contextId={`paper:${paperId}`} />
         ) : (
           <ResearchTreePanel
             paperId={paperId}

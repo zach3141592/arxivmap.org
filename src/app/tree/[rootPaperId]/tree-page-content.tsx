@@ -94,7 +94,7 @@ export function TreePageContent({
               }}
             />
             <div className="h-full border-l border-gray-100">
-              <ChatPanel abstract={chatContext} />
+              <ChatPanel abstract={chatContext} contextId={`tree:${tree.root}`} />
             </div>
           </aside>
         )}

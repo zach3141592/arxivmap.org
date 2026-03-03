@@ -458,7 +458,7 @@ export function PaperMap({
                     }}
                   />
                   <div className="h-full border-l border-gray-100">
-                    <ChatPanel abstract={chatContext} />
+                    <ChatPanel abstract={chatContext} contextId="map" />
                   </div>
                 </aside>
               )}
