@@ -10,6 +10,7 @@ import {
   packCircles,
 } from "@/lib/map-layout";
 import type { StoredMapData } from "@/lib/paper-map-ai";
+import { ChatPanel } from "@/app/abs/[paperId]/chat-panel";
 
 /* ── Types ── */
 
@@ -45,6 +46,7 @@ export function PaperMap({
   const [selectedPos, setSelectedPos] = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const circles = useMemo(() => {
     if (cachedMap) {
@@ -67,6 +69,18 @@ export function PaperMap({
       cardPositions: positions,
     }]);
   }, [cachedMap, papers]);
+
+  const chatContext = useMemo(() => {
+    const totalPapers = circles.reduce((sum, c) => sum + c.papers.length, 0);
+    let ctx = `Paper map with ${totalPapers} papers across ${circles.length} topics:\n`;
+    for (const c of circles) {
+      ctx += `\nTopic: "${c.topic.label}"\n`;
+      for (const p of c.papers) {
+        ctx += `- "${p.title}" (${p.arxiv_id})\n`;
+      }
+    }
+    return ctx;
+  }, [circles]);
 
   const bounds = useMemo(() => {
     if (circles.length === 0) return { minX: -400, minY: -300, maxX: 400, maxY: 300 };
@@ -151,7 +165,7 @@ export function PaperMap({
     <div
       ref={containerRef}
       className={`relative overflow-hidden bg-white ${
-        isFullscreen ? "h-screen w-screen" : "h-full rounded-2xl border border-gray-200"
+        isFullscreen ? "h-full w-full" : "h-full rounded-2xl border border-gray-200"
       }`}
       style={{ cursor: dragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
@@ -373,18 +387,6 @@ export function PaperMap({
         </button>
       </div>
 
-      {isFullscreen && (
-        <div className="absolute left-4 top-4">
-          <a
-            href="/"
-            className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
-          >
-            &larr;
-            <img src="/arxivmap.png" alt="" className="h-5 w-5" />
-            Arxiv Map
-          </a>
-        </div>
-      )}
     </div>
   );
 
@@ -393,8 +395,42 @@ export function PaperMap({
       <>
         <div className="h-[500px]" />
         {createPortal(
-          <div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>
-            {mapContent}
+          <div style={{ position: "fixed", inset: 0, zIndex: 99999 }} className="flex flex-col">
+            <header className="flex items-center gap-4 border-b border-gray-100 bg-white px-6 py-3">
+              <a
+                href="/"
+                className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
+              >
+                &larr;
+                <img src="/arxivmap.png" alt="" className="h-5 w-5" />
+                Arxiv Map
+              </a>
+              <span className="flex-1" />
+              <button
+                onClick={() => setChatOpen(!chatOpen)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                  chatOpen
+                    ? "bg-gray-900 text-white"
+                    : "border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-800"
+                }`}
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => setIsFullscreen(false)}
+                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-500 transition-all hover:border-gray-400 hover:text-gray-800"
+              >
+                Exit fullscreen
+              </button>
+            </header>
+            <div className="relative flex flex-1 overflow-hidden">
+              <div className="flex-1">{mapContent}</div>
+              {chatOpen && (
+                <aside className="h-full w-[400px] shrink-0 border-l border-gray-100 bg-white">
+                  <ChatPanel abstract={chatContext} />
+                </aside>
+              )}
+            </div>
           </div>,
           document.body
         )}
