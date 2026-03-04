@@ -373,7 +373,7 @@ export function PaperMap({
       </div>
 
       {/* Controls */}
-      <div className="absolute bottom-3 right-3 flex gap-1">
+      <div className="absolute bottom-3 left-3 flex gap-1">
         <button
           onClick={() => setIsFullscreen(!isFullscreen)}
           className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
