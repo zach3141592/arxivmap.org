@@ -197,12 +197,16 @@ function TopicCluster({
   zOffset,
   onSelect,
   highlightedIds,
+  isZoomedIn,
+  isFocused,
 }: {
   circle: ReturnType<typeof packCircles>[0];
   ci: number;
   zOffset: number;
   onSelect: (info: SelectedInfo) => void;
   highlightedIds: Set<string>;
+  isZoomedIn: boolean;
+  isFocused: boolean;
 }) {
   const color = PALETTE[ci % PALETTE.length].hex;
   const isAnyHighlighted = highlightedIds.size > 0;
@@ -227,10 +231,12 @@ function TopicCluster({
     [circle, ci, zOffset]
   );
 
+  const showPapers = !isZoomedIn || isFocused;
+
   return (
     <group>
       <HubNode label={circle.topic.label} position={hubPos} color={color} />
-      {circle.papers.map((paper, i) => {
+      {showPapers && circle.papers.map((paper, i) => {
         const nodePos = paperPositions[i];
         if (!nodePos) return null;
         return (
@@ -383,6 +389,9 @@ function Scene({
   const [selected, setSelected] = useState<SelectedInfo | null>(null);
   const controlsRef = useRef<any>(null);
   const cameraTargetRef = useRef<THREE.Vector3 | null>(null);
+  const isZoomedInRef = useRef(false);
+  const focusedIdxRef = useRef<number | null>(null);
+  const [lodState, setLodState] = useState({ isZoomedIn: false, focusedIdx: null as number | null });
 
   const zOffsets = useMemo(
     () =>
@@ -426,14 +435,40 @@ function Scene({
     if (centroid) cameraTargetRef.current = centroid.clone();
   }, [centroid]);
 
-  // Smooth camera pan toward target
-  useFrame(() => {
-    if (!controlsRef.current || !cameraTargetRef.current) return;
-    const controls = controlsRef.current;
-    controls.target.lerp(cameraTargetRef.current, 0.05);
-    controls.update();
-    if (controls.target.distanceTo(cameraTargetRef.current) < 0.05) {
-      cameraTargetRef.current = null;
+  // Smooth camera pan toward target + LOD zoom detection
+  useFrame(({ camera }) => {
+    if (controlsRef.current && cameraTargetRef.current) {
+      const controls = controlsRef.current;
+      controls.target.lerp(cameraTargetRef.current, 0.05);
+      controls.update();
+      if (controls.target.distanceTo(cameraTargetRef.current) < 0.05) {
+        cameraTargetRef.current = null;
+      }
+    }
+
+    // LOD: when zoomed in, only render the focused cluster's papers
+    const dist = camera.position.length();
+    const zoomed = dist < 14;
+
+    let newFocusedIdx: number | null = null;
+    if (zoomed && controlsRef.current && circles.length > 0) {
+      const target = controlsRef.current.target as THREE.Vector3;
+      let minDist = Infinity;
+      let minIdx = 0;
+      circles.forEach((c, i) => {
+        const hx = c.cx * SCALE;
+        const hy = -c.cy * SCALE;
+        const hz = zOffsets[i];
+        const d = Math.sqrt((hx - target.x) ** 2 + (hy - target.y) ** 2 + (hz - target.z) ** 2);
+        if (d < minDist) { minDist = d; minIdx = i; }
+      });
+      newFocusedIdx = minIdx;
+    }
+
+    if (zoomed !== isZoomedInRef.current || newFocusedIdx !== focusedIdxRef.current) {
+      isZoomedInRef.current = zoomed;
+      focusedIdxRef.current = newFocusedIdx;
+      setLodState({ isZoomedIn: zoomed, focusedIdx: newFocusedIdx });
     }
   });
 
@@ -454,6 +489,8 @@ function Scene({
           zOffset={zOffsets[ci]}
           onSelect={(info) => setSelected(info)}
           highlightedIds={highlightedIds}
+          isZoomedIn={lodState.isZoomedIn}
+          isFocused={lodState.focusedIdx === ci}
         />
       ))}
 
