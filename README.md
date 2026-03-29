@@ -19,7 +19,7 @@
 - **3D paper map** — All your saved papers laid out in a navigable 3D space, clustered by topic using Claude.
 - **AI summaries** — Claude generates structured summaries (TL;DR, contributions, methodology, findings) for any paper.
 - **AI chat** — Ask questions about a specific paper or your entire map. The map chat can highlight and navigate to relevant papers.
-- **Paper feed** — Discover new work via AI-powered recommendations based on your library, plus the latest ArXiv submissions.
+- **Paper feed** — Doom-scroll through the latest ArXiv submissions and AI-powered recommendations based on your library.
 - **Paper reader** — Read any ArXiv paper with a persistent chat sidebar for questions and context.
 
 ---

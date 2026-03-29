@@ -11,7 +11,7 @@ export default async function PapersPage() {
     .select("arxiv_id, title, authors, created_at")
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(500);
 
   return <PapersSection papers={papers || []} />;
 }

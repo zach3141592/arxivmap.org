@@ -56,25 +56,24 @@ export async function POST(request: Request) {
 
   const serviceClient = createServiceClient();
 
-  // Fetch all user's papers
-  const { data: papers } = await serviceClient
+  // Get total paper count for staleness tracking
+  const { count: totalCount } = await serviceClient
     .from("paper_summaries")
-    .select("arxiv_id, title, authors, abstract")
-    .eq("user_id", authData.user.id)
-    .order("created_at", { ascending: false });
+    .select("arxiv_id", { count: "exact", head: true })
+    .eq("user_id", authData.user.id);
 
-  if (!papers || papers.length === 0) {
+  if (!totalCount) {
     return new Response("No papers found", { status: 400 });
   }
 
-  // Cache check: if paper_count matches, return cached
+  // Cache check: if paper_count matches total, return cached
   const { data: cached } = await serviceClient
     .from("paper_maps")
     .select("map_data, paper_count")
     .eq("user_id", authData.user.id)
     .single();
 
-  if (cached && cached.paper_count === papers.length) {
+  if (cached && cached.paper_count === totalCount) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -107,6 +106,24 @@ export async function POST(request: Request) {
           )
         );
 
+        // Fetch up to 300 most recent papers for map generation
+        const { data: papers } = await serviceClient
+          .from("paper_summaries")
+          .select("arxiv_id, title, authors, abstract")
+          .eq("user_id", authData.user!.id)
+          .order("created_at", { ascending: false })
+          .limit(300);
+
+        if (!papers || papers.length === 0) {
+          controller.enqueue(
+            encoder.encode(
+              `event: error\ndata: ${JSON.stringify({ message: "No papers found" })}\n\n`
+            )
+          );
+          controller.close();
+          return;
+        }
+
         const clusters = await generateMapClusters(papers);
 
         controller.enqueue(
@@ -129,7 +146,7 @@ export async function POST(request: Request) {
           .upsert({
             user_id: authData.user!.id,
             map_data: mapData,
-            paper_count: papers.length,
+            paper_count: totalCount,
             updated_at: new Date().toISOString(),
           });
 
