@@ -11,8 +11,11 @@ interface Paper {
   created_at: string | null;
 }
 
+type ImportFormat = "text" | "bibtex" | "sql";
+
+type ImportResult = { added: number; failed: string[]; total: number };
+
 function extractArxivId(value: string): string | null {
-  // Try as URL first
   try {
     const url = new URL(value);
     if (url.hostname.includes("arxiv.org")) {
@@ -22,18 +25,67 @@ function extractArxivId(value: string): string | null {
   } catch {
     // not a URL
   }
-  // Bare arxiv ID like 2301.07041
   if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(value.trim())) {
     return value.trim();
   }
   return null;
 }
 
+function parseArxivIds(text: string): string[] {
+  const ids = new Set<string>();
+
+  // arxiv.org URLs
+  for (const m of text.matchAll(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/gi)) {
+    ids.add(m[1]);
+  }
+
+  // BibTeX eprint field: eprint = {2301.07041}
+  for (const m of text.matchAll(/eprint\s*=\s*[{"](\d{4}\.\d{4,5})(?:v\d+)?[}"]/gi)) {
+    ids.add(m[1]);
+  }
+
+  // Any bare arXiv ID pattern not adjacent to other digits
+  for (const m of text.matchAll(/(?<!\d)(\d{4}\.\d{4,5})(?:v\d+)?(?!\d)/g)) {
+    ids.add(m[1]);
+  }
+
+  return [...ids];
+}
+
+const FORMAT_PLACEHOLDERS: Record<ImportFormat, string> = {
+  text: `Paste arXiv IDs or URLs, one per line:
+
+2301.07041
+1706.03762
+https://arxiv.org/abs/2005.14165`,
+  bibtex: `Paste BibTeX entries:
+
+@article{vaswani2017,
+  title   = {Attention Is All You Need},
+  author  = {Vaswani, Ashraf and others},
+  journal = {arXiv preprint arXiv:1706.03762},
+  eprint  = {1706.03762},
+  year    = {2017}
+}`,
+  sql: `Paste SQL with arXiv IDs:
+
+INSERT INTO papers (arxiv_id, title) VALUES
+  ('2301.07041', 'Llama: Open and Efficient Foundation Language Models'),
+  ('1706.03762', 'Attention Is All You Need');`,
+};
+
 export function PapersSection({ papers }: { papers: Paper[] }) {
   const [paperList, setPaperList] = useState(papers);
   const [query, setQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFormat, setImportFormat] = useState<ImportFormat>("text");
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
   const router = useRouter();
 
   const arxivId = extractArxivId(query);
@@ -41,10 +93,46 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
     ? paperList.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()))
     : paperList;
 
+  const detectedIds = importText.trim() ? parseArxivIds(importText) : [];
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (arxivId) {
       router.push(`/abs/${arxivId}`);
+    }
+  }
+
+  function openImport() {
+    setImportOpen(true);
+    setImportText("");
+    setImportResult(null);
+  }
+
+  function closeImport() {
+    setImportOpen(false);
+    setImportText("");
+    setImportResult(null);
+  }
+
+  async function runImport() {
+    if (detectedIds.length === 0) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/papers/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ arxiv_ids: detectedIds }),
+      });
+      const data: ImportResult = await res.json();
+      setImportResult(data);
+      if (data.added > 0) {
+        router.refresh();
+      }
+    } catch {
+      setImportResult({ added: 0, failed: detectedIds, total: detectedIds.length });
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -86,7 +174,84 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
         >
           Go
         </button>
+        <button
+          type="button"
+          onClick={importOpen ? closeImport : openImport}
+          className="rounded-xl border px-4 py-2.5 text-sm font-medium transition-all"
+          style={{
+            background: importOpen ? "#eff6ff" : "white",
+            borderColor: importOpen ? "#bfdbfe" : "#e5e7eb",
+            color: importOpen ? "#2563eb" : "#6b7280",
+          }}
+        >
+          Import
+        </button>
       </form>
+
+      {importOpen && (
+        <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4">
+          {/* Format tabs */}
+          <div className="mb-3 flex items-center gap-1">
+            {(["text", "bibtex", "sql"] as ImportFormat[]).map((fmt) => (
+              <button
+                key={fmt}
+                type="button"
+                onClick={() => { setImportFormat(fmt); setImportText(""); setImportResult(null); }}
+                className="rounded-lg px-3 py-1 text-xs font-medium transition-colors"
+                style={{
+                  background: importFormat === fmt ? "#f3f4f6" : "transparent",
+                  color: importFormat === fmt ? "#111827" : "#9ca3af",
+                }}
+              >
+                {fmt === "text" ? "Plain Text" : fmt === "bibtex" ? "BibTeX" : "SQL"}
+              </button>
+            ))}
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            value={importText}
+            onChange={(e) => { setImportText(e.target.value); setImportResult(null); }}
+            placeholder={FORMAT_PLACEHOLDERS[importFormat]}
+            rows={6}
+            className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 font-mono text-xs text-gray-700 outline-none placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100"
+          />
+
+          {/* Footer */}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400">
+              {importText.trim()
+                ? detectedIds.length > 0
+                  ? `${detectedIds.length} arXiv ID${detectedIds.length !== 1 ? "s" : ""} detected`
+                  : "No arXiv IDs found"
+                : "Paste content above"}
+            </span>
+
+            <div className="flex items-center gap-2">
+              {importResult && (
+                <span className="text-xs" style={{ color: importResult.failed.length > 0 ? "#d97706" : "#059669" }}>
+                  {importResult.added > 0
+                    ? `${importResult.added} added`
+                    : "None added"}
+                  {importResult.failed.length > 0 && `, ${importResult.failed.length} failed`}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={runImport}
+                disabled={detectedIds.length === 0 || importing}
+                className="rounded-lg px-4 py-1.5 text-xs font-medium transition-all disabled:cursor-default disabled:bg-gray-100 disabled:text-gray-300 bg-gray-900 text-white hover:bg-black active:scale-[0.97] disabled:active:scale-100"
+              >
+                {importing
+                  ? `Importing${detectedIds.length > 0 ? ` ${detectedIds.length}` : ""}…`
+                  : detectedIds.length > 0
+                  ? `Import ${detectedIds.length > 50 ? "50 (max)" : detectedIds.length} paper${detectedIds.length !== 1 ? "s" : ""}`
+                  : "Import"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {filteredPapers.length === 0 ? (
         <p className="mt-8 text-center text-sm text-gray-400">
