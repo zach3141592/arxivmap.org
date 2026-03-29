@@ -4,6 +4,7 @@ import { fetchArxivPaper } from "@/lib/arxiv";
 import { ScrollContainer } from "@/components/scroll-container";
 import { SummarySection } from "./summary-section";
 import { RightPanel } from "./right-panel";
+import { PaperLayout } from "./paper-layout";
 
 export default async function PaperPage({
   params,
@@ -83,39 +84,39 @@ export default async function PaperPage({
     if (saveError) console.error("Failed to save paper on visit:", saveError);
   }
 
+  const articleContent = (
+    <ScrollContainer className="h-full px-5 py-8 sm:px-8 lg:px-12">
+      <article className="mx-auto w-full max-w-2xl">
+        <a
+          href="/"
+          className="mb-10 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
+        >
+          &larr;
+          <img src="/arxivmap.png" alt="" className="h-5 w-5" />
+          Arxiv Map
+        </a>
+
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>
+
+        <p className="mt-4 text-sm leading-relaxed text-gray-400">{authors}</p>
+
+        <a
+          href={`https://arxiv.org/abs/${paperId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
+        >
+          arxiv.org/{paperId}
+        </a>
+
+        <SummarySection paperId={paperId} initialSummary={initialSummary} abstract={abstract} />
+      </article>
+    </ScrollContainer>
+  );
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <ScrollContainer className="flex-1 overflow-y-auto overscroll-contain px-6 py-10 lg:px-12">
-        <article className="mx-auto w-full max-w-2xl">
-          <a
-            href="/"
-            className="mb-10 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
-          >
-            &larr;
-            <img src="/arxivmap.png" alt="" className="h-5 w-5" />
-            Arxiv Map
-          </a>
-
-          <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>
-
-          <p className="mt-4 text-sm leading-relaxed text-gray-400">{authors}</p>
-
-          <a
-            href={`https://arxiv.org/abs/${paperId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-block rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
-          >
-            arxiv.org/{paperId}
-          </a>
-
-          <SummarySection paperId={paperId} initialSummary={initialSummary} abstract={abstract} />
-        </article>
-      </ScrollContainer>
-
-      <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-l border-gray-100 lg:block">
-        <RightPanel paperId={paperId} title={title} abstract={abstract} authors={authors} />
-      </aside>
-    </div>
+    <PaperLayout chatPanel={<RightPanel paperId={paperId} title={title} abstract={abstract} authors={authors} />}>
+      {articleContent}
+    </PaperLayout>
   );
 }

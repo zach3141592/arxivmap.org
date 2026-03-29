@@ -79,7 +79,7 @@ export function PapersList({ papers }: { papers: Paper[] }) {
                 </p>
               </a>
             )}
-            <div className="opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
               <ThreeDotMenu
                 onRename={() => { setRenameValue(paper.title); setRenamingId(paper.arxiv_id); }}
                 onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
