@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { PaperMap } from "@/components/paper-map";
 import type { StoredMapData } from "@/lib/paper-map-ai";
 
@@ -23,7 +24,10 @@ export function MapView({
   const [liveMap, setLiveMap] = useState<StoredMapData | null>(null);
   const [mapProgress, setMapProgress] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const mapGenerated = useRef(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const currentMap = liveMap ?? cachedMap;
   const needsGeneration = mapIsStale || !currentMap;
@@ -87,34 +91,33 @@ export function MapView({
     }
   }, [needsGeneration, papers.length, mapProgress, generateMap]);
 
-  if (mapProgress) {
-    return (
-      <div className="flex h-80 flex-col items-center justify-center gap-3">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-800" />
-        <p className="text-sm text-gray-400">{mapProgress}</p>
-      </div>
-    );
-  }
-
-  if (mapError) {
-    return (
-      <div className="flex h-80 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-red-400">{mapError}</p>
-        <button
-          onClick={() => { mapGenerated.current = false; generateMap(); }}
-          className="text-sm text-gray-500 underline hover:text-gray-700"
-        >
-          Try again
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="-mx-4 sm:-mx-6">
-      <div className="h-[calc(100vh-80px)] min-h-[500px]">
-        <PaperMap papers={papers} cachedMap={currentMap} />
-      </div>
+  const content = mapProgress ? (
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-800" />
+      <p className="text-sm text-gray-400">{mapProgress}</p>
     </div>
+  ) : mapError ? (
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <p className="text-sm text-red-400">{mapError}</p>
+      <button
+        onClick={() => { mapGenerated.current = false; generateMap(); }}
+        className="text-sm text-gray-500 underline hover:text-gray-700"
+      >
+        Try again
+      </button>
+    </div>
+  ) : (
+    <PaperMap papers={papers} cachedMap={currentMap} />
+  );
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      style={{ position: "fixed", top: 49, left: 0, right: 0, bottom: 0, zIndex: 10 }}
+    >
+      {content}
+    </div>,
+    document.body
   );
 }
