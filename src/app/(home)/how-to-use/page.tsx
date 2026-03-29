@@ -61,6 +61,13 @@ export default function HowToUsePage() {
           className="mt-4 w-full rounded-xl border border-gray-100"
         />
       </section>
+      <section className="mt-6">
+        <h2 className="text-base font-semibold text-gray-800">Feed</h2>
+        <p className="mt-2 text-sm text-gray-500">
+          Browse the latest papers from arXiv, sorted by date. Scroll through new submissions,
+          click any paper to open its summary, and save ones you want to keep.
+        </p>
+      </section>
     </div>
   );
 }
