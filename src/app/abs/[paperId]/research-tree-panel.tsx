@@ -141,11 +141,15 @@ export function ResearchTreePanel({
     setTree(memberTrees[idx].tree_data);
   }
 
+  const darkBase = { backgroundColor: "#0c0a06" };
+  const goldColor = "#c9a84c";
+  const dimColor = "#6b5c3e";
+
   // Checking membership
   if (status === "checking") {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-gray-300">Loading...</p>
+      <div className="flex h-full items-center justify-center" style={darkBase}>
+        <p className="text-sm" style={{ color: dimColor }}>Loading...</p>
       </div>
     );
   }
@@ -153,13 +157,18 @@ export function ResearchTreePanel({
   // No existing tree — show generate button
   if (status === "idle") {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6">
-        <p className="text-sm text-gray-400">
-          No research tree found for this paper.
+      <div className="flex h-full flex-col items-center justify-center px-6" style={darkBase}>
+        <p className="text-sm text-center" style={{ color: dimColor }}>
+          No research tree for this paper yet.
         </p>
         <button
           onClick={generateTree}
-          className="mt-4 rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98]"
+          className="mt-4 rounded-md px-5 py-2 text-sm font-medium transition-opacity hover:opacity-80 active:scale-[0.98]"
+          style={{
+            backgroundColor: "#1a1408",
+            border: `1px solid rgba(201,168,76,0.4)`,
+            color: goldColor,
+          }}
         >
           Generate Research Tree
         </button>
@@ -173,16 +182,15 @@ export function ResearchTreePanel({
     const progressPercent = currentStep ? currentStep.progress : 0;
 
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6">
+      <div className="flex h-full flex-col items-center justify-center px-6" style={darkBase}>
         <div className="w-full max-w-[260px]">
-          <p className="mb-4 text-center text-sm font-medium text-gray-400">
+          <p className="mb-4 text-center text-sm font-medium" style={{ color: dimColor }}>
             {currentStep ? currentStep.label : "Building research tree..."}
           </p>
-
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="h-px w-full overflow-hidden" style={{ backgroundColor: "#1f1808" }}>
             <div
-              className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out"
-              style={{ width: `${progressPercent}%` }}
+              className="h-full transition-all duration-500 ease-out"
+              style={{ width: `${progressPercent}%`, backgroundColor: goldColor }}
             />
           </div>
         </div>
@@ -192,11 +200,16 @@ export function ResearchTreePanel({
 
   if (status === "error") {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6">
-        <p className="text-sm text-red-500">{error}</p>
+      <div className="flex h-full flex-col items-center justify-center px-6" style={darkBase}>
+        <p className="text-sm text-red-400">{error}</p>
         <button
           onClick={generateTree}
-          className="mt-4 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-all hover:border-gray-400 hover:text-gray-900"
+          className="mt-4 rounded-md px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
+          style={{
+            backgroundColor: "#1a1408",
+            border: `1px solid rgba(201,168,76,0.3)`,
+            color: goldColor,
+          }}
         >
           Retry
         </button>
@@ -209,13 +222,18 @@ export function ResearchTreePanel({
   }
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-auto" style={darkBase}>
       {memberTrees.length > 1 && (
-        <div className="border-b border-gray-100 px-4 py-2">
+        <div className="px-4 py-2" style={{ borderBottom: "1px solid rgba(201,168,76,0.15)" }}>
           <select
             value={selectedTreeIdx}
             onChange={(e) => handleTreeSelect(Number(e.target.value))}
-            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-gray-400"
+            className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+            style={{
+              backgroundColor: "#1a1408",
+              border: "1px solid rgba(201,168,76,0.3)",
+              color: "#e8d5a3",
+            }}
           >
             {memberTrees.map((t, i) => (
               <option key={t.arxiv_id} value={i}>

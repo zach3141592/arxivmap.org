@@ -144,16 +144,17 @@ export function HomeTabs({
   treeDataList,
   cachedMap,
   mapIsStale,
+  defaultTab,
 }: {
   papers: Paper[];
   trees: Tree[];
   treeDataList: TreeData[];
   cachedMap: StoredMapData | null;
   mapIsStale: boolean;
+  defaultTab: Tab;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>("papers");
+  const [activeTab] = useState<Tab>(defaultTab);
   const [paperList, setPaperList] = useState(papers);
-  const [query, setQuery] = useState("");
   const [treeList, setTreeList] = useState(trees);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -278,51 +279,8 @@ export function HomeTabs({
     }
   }
 
-  const filteredPapers = query
-    ? paperList.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()))
-    : paperList;
-
   return (
-    <section className="mt-8">
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search papers"
-        className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100"
-      />
-      <div className="flex gap-1 border-b border-gray-100">
-        <button
-          onClick={() => setActiveTab("papers")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === "papers"
-              ? "border-b-2 border-gray-900 text-gray-900"
-              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          Papers
-        </button>
-        <button
-          onClick={() => setActiveTab("trees")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === "trees"
-              ? "border-b-2 border-gray-900 text-gray-900"
-              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          Research Trees
-        </button>
-        <button
-          onClick={() => setActiveTab("map")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === "map"
-              ? "border-b-2 border-gray-900 text-gray-900"
-              : "border-b-2 border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          My Map
-        </button>
-      </div>
+    <section className="mt-4">
 
       {activeTab === "map" ? (
         <div className="-mx-4 sm:-mx-6 mt-2">
@@ -348,9 +306,9 @@ export function HomeTabs({
           </div>
         </div>
       ) : activeTab === "papers" ? (
-        filteredPapers.length > 0 ? (
+        paperList.length > 0 ? (
           <ul className="mt-2">
-            {filteredPapers.map((paper) => (
+            {paperList.map((paper) => (
               <li key={paper.arxiv_id}>
                 <div className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50">
                   {renamingId === paper.arxiv_id ? (
@@ -415,7 +373,7 @@ export function HomeTabs({
           </ul>
         ) : (
           <p className="mt-8 text-center text-sm text-gray-400">
-            {query ? "No papers match your search." : "No summaries yet. Look up a paper to get started."}
+            No summaries yet. Look up a paper to get started.
           </p>
         )
       ) : treeList.length > 0 ? (

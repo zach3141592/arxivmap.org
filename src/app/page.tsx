@@ -2,8 +2,10 @@ import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/s
 import { PaperInput } from "./paper-input";
 import { LandingInput } from "./landing-input";
 import { HomeTabs } from "./home-tabs";
+import { HeaderNav } from "./header-nav";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams;
   let user = null;
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -72,7 +74,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
+      <header className="flex items-center justify-between border-b border-gray-100 px-6 py-3 sm:px-8">
         <div className="flex items-center gap-4">
           <a href="/" className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight">
             <img src="/arxivmap.png" alt="" className="h-6 w-6" />
@@ -80,6 +82,7 @@ export default async function Home() {
           </a>
           <PaperInput compact />
         </div>
+        <HeaderNav />
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-gray-400 sm:inline">{user.email}</span>
           <form action="/auth/signout" method="POST">
@@ -100,6 +103,7 @@ export default async function Home() {
           treeDataList={treeDataList}
           cachedMap={mapRow?.map_data ?? null}
           mapIsStale={mapRow ? mapRow.paper_count !== (recentPapers?.length ?? 0) : (recentPapers?.length ?? 0) > 0}
+          defaultTab={(tab as "papers" | "trees" | "map") || "papers"}
         />
       </main>
     </div>

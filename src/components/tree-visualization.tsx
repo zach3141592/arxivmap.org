@@ -4,38 +4,28 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import type { ResearchTree, TreeNode } from "@/lib/research-tree";
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
-  foundational: "#3b82f6",
-  extends: "#22c55e",
-  alternative: "#f97316",
-  applies: "#8b5cf6",
-  successor: "#06b6d4",
+  foundational: "#f59e0b",
+  extends: "#34d399",
+  alternative: "#f87171",
+  applies: "#a78bfa",
+  successor: "#60a5fa",
 };
 
-// Large palette of visually distinct colors for per-edge coloring
-const EDGE_PALETTE = [
-  "#e6194b", // red
-  "#3cb44b", // green
-  "#4363d8", // blue
-  "#f58231", // orange
-  "#911eb4", // purple
-  "#42d4f4", // cyan
-  "#f032e6", // magenta
-  "#bfef45", // lime
-  "#fabed4", // pink
-  "#469990", // teal
-  "#dcbeff", // lavender
-  "#9a6324", // brown
-  "#800000", // maroon
-  "#aaffc3", // mint
-  "#808000", // olive
-  "#000075", // navy
-];
+// Theme
+const GOLD = "#c9a84c";
+const GOLD_BRIGHT = "#e6c96a";
+const NODE_BG = "#13100a";
+const ROOT_BG = "#1f1808";
+const BG_COLOR = "#0c0a06";
+const TEXT_PRIMARY = "#e8d5a3";
+const TEXT_DIM = "#6b5c3e";
 
-const NODE_WIDTH = 320;
-const NODE_HEIGHT = 60;
-const ROW_GAP = 200;
-const COL_GAP = 160;
-const PADDING = 80;
+const NODE_WIDTH = 152;
+const NODE_HEIGHT = 54;
+const ROW_GAP = 76;
+const COL_GAP = 16;
+const PADDING = 60;
+const NODES_PER_ROW = 4;
 
 interface LayoutNode {
   node: TreeNode;
@@ -63,7 +53,7 @@ function layoutNodes(tree: ResearchTree): LayoutNode[] {
 
   const layouts: LayoutNode[] = [];
 
-  const aboveRows = chunkNodes(above, 2);
+  const aboveRows = chunkNodes(above, NODES_PER_ROW);
   for (let rowIdx = 0; rowIdx < aboveRows.length; rowIdx++) {
     const row = aboveRows[rowIdx];
     const rowY = PADDING + rowIdx * (NODE_HEIGHT + ROW_GAP);
@@ -75,7 +65,7 @@ function layoutNodes(tree: ResearchTree): LayoutNode[] {
     layouts.push({ node: root, x: PADDING, y: rootY });
   }
 
-  const belowRows = chunkNodes(below, 2);
+  const belowRows = chunkNodes(below, NODES_PER_ROW);
   for (let rowIdx = 0; rowIdx < belowRows.length; rowIdx++) {
     const row = belowRows[rowIdx];
     const rowY = rootY + (rowIdx + 1) * (NODE_HEIGHT + ROW_GAP);
@@ -133,147 +123,14 @@ export function TreeVisualization({
     return map;
   }, [layouts]);
 
-  // Assign unique colors to edges — adjacent/crossing edges get different colors
-  const edgeColors = useMemo(() => {
-    const n = tree.edges.length;
-    // Build conflict graph: edges that share a node or whose paths cross/are close
-    const conflicts: Set<number>[] = Array.from({ length: n }, () => new Set());
-
-    // Helper: get edge endpoints
-    const endpoints = tree.edges.map((edge) => {
-      const s = layoutMap.get(edge.source);
-      const t = layoutMap.get(edge.target);
-      if (!s || !t) return null;
-      return {
-        x1: s.x + NODE_WIDTH / 2, y1: s.y + NODE_HEIGHT,
-        x2: t.x + NODE_WIDTH / 2, y2: t.y,
-        source: edge.source, target: edge.target,
-      };
-    });
-
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const a = endpoints[i];
-        const b = endpoints[j];
-        if (!a || !b) continue;
-
-        // Conflict if they share a node
-        const sharesNode =
-          a.source === b.source || a.source === b.target ||
-          a.target === b.source || a.target === b.target;
-
-        // Conflict if their midpoints are close (paths likely cross or run parallel)
-        const midAx = (a.x1 + a.x2) / 2, midAy = (a.y1 + a.y2) / 2;
-        const midBx = (b.x1 + b.x2) / 2, midBy = (b.y1 + b.y2) / 2;
-        const dist = Math.hypot(midAx - midBx, midAy - midBy);
-        const close = dist < 300;
-
-        if (sharesNode || close) {
-          conflicts[i].add(j);
-          conflicts[j].add(i);
-        }
-      }
-    }
-
-    // Greedy graph coloring
-    const colors: number[] = new Array(n).fill(-1);
-    for (let i = 0; i < n; i++) {
-      const usedColors = new Set<number>();
-      for (const j of conflicts[i]) {
-        if (colors[j] >= 0) usedColors.add(colors[j]);
-      }
-      let c = 0;
-      while (usedColors.has(c)) c++;
-      colors[i] = c;
-    }
-
-    return colors.map((c) => EDGE_PALETTE[c % EDGE_PALETTE.length]);
-  }, [tree.edges, layoutMap]);
-
-  // Pre-compute edge label positions with collision resolution
-  const edgeLabels = useMemo(() => {
-    const margin = 6;
-    const labels = tree.edges.map((edge, idx) => {
-      const source = layoutMap.get(edge.source);
-      const target = layoutMap.get(edge.target);
-      if (!source || !target) return null;
-
-      const x1 = source.x + NODE_WIDTH / 2;
-      const y1 = source.y + NODE_HEIGHT;
-      const x2 = target.x + NODE_WIDTH / 2;
-      const y2 = target.y;
-      const midY = (y1 + y2) / 2;
-
-      const estW = edge.label.length * 7 + 20;
-      const estH = 22;
-
-      return { x: (x1 + x2) / 2, y: midY, w: estW, h: estH, text: edge.label, color: edgeColors[idx] };
-    }).filter(Boolean) as { x: number; y: number; w: number; h: number; text: string; color: string }[];
-
-    // Pass 1: nudge labels away from overlapping nodes
-    for (const lbl of labels) {
-      for (const l of layouts) {
-        const nLeft = l.x - margin;
-        const nRight = l.x + NODE_WIDTH + margin;
-        const nTop = l.y - margin;
-        const nBottom = l.y + NODE_HEIGHT + margin;
-
-        const lLeft = lbl.x - lbl.w / 2;
-        const lRight = lbl.x + lbl.w / 2;
-        const lTop = lbl.y - lbl.h / 2;
-        const lBottom = lbl.y + lbl.h / 2;
-
-        if (lRight > nLeft && lLeft < nRight && lBottom > nTop && lTop < nBottom) {
-          // Pick shorter displacement axis
-          const pushRight = nRight + lbl.w / 2 + margin - lbl.x;
-          const pushLeft = lbl.x - (nLeft - lbl.w / 2 - margin);
-          const pushDown = nBottom + lbl.h / 2 + margin - lbl.y;
-          const pushUp = lbl.y - (nTop - lbl.h / 2 - margin);
-          const minH = Math.min(Math.abs(pushRight), Math.abs(pushLeft));
-          const minV = Math.min(Math.abs(pushDown), Math.abs(pushUp));
-
-          if (minH <= minV) {
-            lbl.x += Math.abs(pushRight) < Math.abs(pushLeft) ? pushRight : -pushLeft;
-          } else {
-            lbl.y += Math.abs(pushDown) < Math.abs(pushUp) ? pushDown : -pushUp;
-          }
-        }
-      }
-    }
-
-    // Pass 2: push overlapping labels apart (3 iterations)
-    for (let iter = 0; iter < 3; iter++) {
-      for (let i = 0; i < labels.length; i++) {
-        for (let j = i + 1; j < labels.length; j++) {
-          const a = labels[i];
-          const b = labels[j];
-          const overlapX = (a.w / 2 + b.w / 2 + margin) - Math.abs(a.x - b.x);
-          const overlapY = (a.h / 2 + b.h / 2 + margin) - Math.abs(a.y - b.y);
-          if (overlapX > 0 && overlapY > 0) {
-            // Push apart along axis of least overlap
-            if (overlapX < overlapY) {
-              const shift = overlapX / 2;
-              if (a.x < b.x) { a.x -= shift; b.x += shift; }
-              else { a.x += shift; b.x -= shift; }
-            } else {
-              const shift = overlapY / 2;
-              if (a.y < b.y) { a.y -= shift; b.y += shift; }
-              else { a.y += shift; b.y -= shift; }
-            }
-          }
-        }
-      }
-    }
-
-    return labels;
-  }, [tree.edges, layoutMap, layouts, edgeColors]);
-
   const maxX = Math.max(...layouts.map((l) => l.x + NODE_WIDTH)) + PADDING;
   const maxY = Math.max(...layouts.map((l) => l.y + NODE_HEIGHT)) + PADDING;
 
-  // Pan handlers
+  // Glowing radial center position
+  const centerX = maxX / 2;
+  const centerY = maxY / 2;
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // Only pan on background clicks (not on nodes/detail card)
     if ((e.target as HTMLElement).closest("[data-node], [data-detail]")) return;
     isPanning.current = true;
     panStart.current = { x: e.clientX, y: e.clientY };
@@ -293,7 +150,6 @@ export function TreeVisualization({
     isPanning.current = false;
   }, []);
 
-  // Non-passive wheel listener so preventDefault() works (React onWheel is passive)
   const zoomRef = useRef(zoom);
   const panRef = useRef(pan);
   zoomRef.current = zoom;
@@ -326,8 +182,8 @@ export function TreeVisualization({
   return (
     <div
       ref={containerRef}
-      className="h-full w-full overflow-hidden bg-gray-50/50"
-      style={{ cursor: isPanning.current ? "grabbing" : "grab" }}
+      className="h-full w-full overflow-hidden"
+      style={{ backgroundColor: BG_COLOR, cursor: "grab" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -342,12 +198,36 @@ export function TreeVisualization({
           height: maxY,
         }}
       >
-        {/* SVG for edges only */}
+        {/* Warm ambient glow */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: centerX - 400,
+            top: centerY - 300,
+            width: 800,
+            height: 600,
+            background: `radial-gradient(ellipse at center, rgba(180,120,30,0.18) 0%, rgba(160,100,20,0.08) 40%, transparent 70%)`,
+            borderRadius: "50%",
+          }}
+        />
+
+        {/* SVG: edges */}
         <svg
           className="absolute inset-0 pointer-events-none"
           width={maxX}
           height={maxY}
+          style={{ filter: "drop-shadow(0 0 3px rgba(201,168,76,0.25))" }}
         >
+          <defs>
+            <filter id="edge-glow">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
           {tree.edges.map((edge, i) => {
             const source = layoutMap.get(edge.source);
             const target = layoutMap.get(edge.target);
@@ -362,175 +242,153 @@ export function TreeVisualization({
             return (
               <path
                 key={`edge-${i}`}
-                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+                d={`M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`}
                 fill="none"
-                stroke={edgeColors[i]}
-                strokeWidth="2"
-                strokeOpacity={0.7}
+                stroke={GOLD}
+                strokeWidth="1.5"
+                strokeOpacity={0.45}
+                strokeLinejoin="round"
+                strokeLinecap="round"
               />
             );
           })}
         </svg>
 
-        {/* Node cards as HTML divs */}
+        {/* Node cards */}
         {layouts.map((layout) => {
           const { node, x, y } = layout;
           const isRoot = node.id === tree.root;
           const isSelected = selectedNode?.id === node.id;
           const isHighlighted = highlightPaperId === node.id;
-          const color = RELATIONSHIP_COLORS[node.relationship] ?? "#6b7280";
+          const relColor = RELATIONSHIP_COLORS[node.relationship] ?? GOLD;
+
+          const borderColor = isSelected
+            ? GOLD_BRIGHT
+            : isHighlighted
+              ? "#60a5fa"
+              : GOLD;
+          const glowOpacity = isSelected ? 0.7 : isHighlighted ? 0.6 : 0.25;
 
           return (
             <div
               key={node.id}
               data-node
-              className="absolute cursor-pointer select-none rounded-lg border"
+              className="absolute cursor-pointer select-none rounded-md"
               style={{
                 left: x,
                 top: y,
                 width: NODE_WIDTH,
                 height: NODE_HEIGHT,
-                backgroundColor: isRoot ? "#000" : "#fff",
-                borderColor: isHighlighted
-                  ? "#3b82f6"
-                  : isSelected
-                    ? "#000"
-                    : "#e5e7eb",
-                borderWidth: isHighlighted ? 3 : isSelected ? 2 : 1,
+                backgroundColor: isRoot ? ROOT_BG : NODE_BG,
+                border: `1px solid ${borderColor}`,
+                boxShadow: `0 0 10px rgba(201,168,76,${glowOpacity}), inset 0 0 0 1px rgba(201,168,76,0.06)`,
                 zIndex: 10,
+                transition: "box-shadow 0.15s ease, border-color 0.15s ease",
               }}
               onClick={() => setSelectedNode(isSelected ? null : node)}
             >
-              {/* Color bar */}
-              <div
-                className="absolute left-0 top-0 h-full w-1 rounded-l"
-                style={{ backgroundColor: color }}
-              />
-              <div className="pl-3.5 pr-2 pt-2.5">
+              <div className="flex h-full flex-col justify-center px-3">
                 <p
-                  className="text-xs font-semibold leading-snug"
-                  style={{ color: isRoot ? "#fff" : "#111" }}
+                  className="text-[11px] font-semibold leading-snug"
+                  style={{ color: isRoot ? GOLD_BRIGHT : TEXT_PRIMARY }}
                 >
-                  {truncateText(node.title, 40)}
+                  {truncateText(node.title, 28)}
                 </p>
-                <p
-                  className="mt-0.5 text-[11px]"
-                  style={{ color: isRoot ? "#a1a1aa" : "#9ca3af" }}
-                >
-                  {node.year > 0 ? node.year : ""}
-                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: relColor, opacity: 0.8 }}
+                  />
+                  <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+                    {node.year > 0 ? node.year : ""}
+                  </p>
+                </div>
               </div>
             </div>
           );
         })}
 
-        {/* Edge labels — rendered after nodes so they always appear on top */}
-        {edgeLabels.map((lbl, i) => (
-          <div
-            key={`label-${i}`}
-            className="absolute pointer-events-none select-none whitespace-nowrap rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-medium shadow-sm"
-            style={{
-              left: lbl.x,
-              top: lbl.y,
-              transform: "translate(-50%, -50%)",
-              zIndex: 15,
-              borderColor: lbl.color,
-              color: lbl.color,
-            }}
-          >
-            {lbl.text}
-          </div>
-        ))}
-
         {/* Detail popover */}
         {selectedNode && selectedLayout && (
           <div
             data-detail
-            className="absolute z-20 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+            className="absolute z-20 w-64 rounded-xl p-4 shadow-2xl"
             style={{
               left: selectedLayout.x,
               top: selectedLayout.y + NODE_HEIGHT + 10,
+              backgroundColor: "#1a1408",
+              border: `1px solid rgba(201,168,76,0.4)`,
+              boxShadow: `0 0 20px rgba(0,0,0,0.8), 0 0 40px rgba(201,168,76,0.1)`,
             }}
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-bold leading-snug text-gray-900">
+              <h3 className="text-sm font-semibold leading-snug" style={{ color: TEXT_PRIMARY }}>
                 {selectedNode.title}
               </h3>
               <button
                 onClick={() => setSelectedNode(null)}
-                className="shrink-0 text-gray-400 hover:text-gray-600"
+                style={{ color: TEXT_DIM }}
+                className="shrink-0 hover:opacity-80"
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
             {selectedNode.authors && (
-              <p className="mt-1 text-xs text-gray-400">{selectedNode.authors}</p>
+              <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
+                {truncateText(selectedNode.authors, 50)}
+              </p>
             )}
-            <p className="mt-2 text-xs leading-relaxed text-gray-500">
+            <p className="mt-2 text-[12px] leading-relaxed" style={{ color: "#9a8a6a" }}>
               {selectedNode.relevance}
             </p>
             <div className="mt-3 flex items-center gap-2">
               <span
-                className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+                className="rounded-full px-2 py-0.5 text-[10px] font-medium"
                 style={{
-                  backgroundColor:
-                    RELATIONSHIP_COLORS[selectedNode.relationship] ?? "#6b7280",
+                  backgroundColor: "rgba(201,168,76,0.12)",
+                  border: "1px solid rgba(201,168,76,0.3)",
+                  color: GOLD,
                 }}
               >
                 {selectedNode.relationship}
               </span>
               {selectedNode.year > 0 && (
-                <span className="text-xs text-gray-400">{selectedNode.year}</span>
+                <span className="text-[11px]" style={{ color: TEXT_DIM }}>{selectedNode.year}</span>
               )}
               <a
                 href={`/abs/${selectedNode.id}`}
-                className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
+                className="ml-auto text-[11px] font-medium transition-opacity hover:opacity-80"
+                style={{ color: GOLD }}
               >
-                View paper
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
+                View paper →
               </a>
             </div>
           </div>
         )}
       </div>
 
-      {/* Zoom buttons */}
+      {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-1">
-        <button
-          onClick={() => setZoom(Math.min(3, zoom * 1.2))}
-          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-        >
-          +
-        </button>
-        <button
-          onClick={() => setZoom(Math.max(0.1, zoom * 0.8))}
-          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-        >
-          -
-        </button>
+        {[
+          { label: "+", action: () => setZoom(Math.min(3, zoom * 1.2)) },
+          { label: "−", action: () => setZoom(Math.max(0.1, zoom * 0.8)) },
+        ].map(({ label, action }) => (
+          <button
+            key={label}
+            onClick={action}
+            className="h-7 w-7 rounded-md text-sm transition-opacity hover:opacity-80"
+            style={{
+              backgroundColor: "#1a1408",
+              border: `1px solid rgba(201,168,76,0.35)`,
+              color: GOLD,
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );
