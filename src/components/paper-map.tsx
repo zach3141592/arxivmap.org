@@ -389,6 +389,7 @@ function Scene({
   const [selected, setSelected] = useState<SelectedInfo | null>(null);
   const controlsRef = useRef<any>(null);
   const cameraTargetRef = useRef<THREE.Vector3 | null>(null);
+  const cameraPositionTargetRef = useRef<THREE.Vector3 | null>(null);
   const isZoomedInRef = useRef(false);
   const focusedIdxRef = useRef<number | null>(null);
   const [lodState, setLodState] = useState({ isZoomedIn: false, focusedIdx: null as number | null });
@@ -432,18 +433,29 @@ function Scene({
 
   // Trigger camera fly when centroid changes
   useEffect(() => {
-    if (centroid) cameraTargetRef.current = centroid.clone();
+    if (centroid) {
+      cameraTargetRef.current = centroid.clone();
+      cameraPositionTargetRef.current = centroid.clone().add(new THREE.Vector3(0, 0, 12));
+    }
   }, [centroid]);
 
   // Smooth camera pan toward target + LOD zoom detection
   useFrame(({ camera }) => {
-    if (controlsRef.current && cameraTargetRef.current) {
+    if (controlsRef.current && (cameraTargetRef.current || cameraPositionTargetRef.current)) {
       const controls = controlsRef.current;
-      controls.target.lerp(cameraTargetRef.current, 0.05);
-      controls.update();
-      if (controls.target.distanceTo(cameraTargetRef.current) < 0.05) {
-        cameraTargetRef.current = null;
+      if (cameraTargetRef.current) {
+        controls.target.lerp(cameraTargetRef.current, 0.05);
+        if (controls.target.distanceTo(cameraTargetRef.current) < 0.05) {
+          cameraTargetRef.current = null;
+        }
       }
+      if (cameraPositionTargetRef.current) {
+        camera.position.lerp(cameraPositionTargetRef.current, 0.05);
+        if (camera.position.distanceTo(cameraPositionTargetRef.current) < 0.05) {
+          cameraPositionTargetRef.current = null;
+        }
+      }
+      controls.update();
     }
 
     // LOD: when zoomed in, only render the focused cluster's papers
