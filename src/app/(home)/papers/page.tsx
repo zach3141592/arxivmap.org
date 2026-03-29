@@ -1,4 +1,5 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { PaperInput } from "../../paper-input";
 import { PapersList } from "./papers-list";
 
 export default async function PapersPage() {
@@ -13,5 +14,10 @@ export default async function PapersPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  return <PapersList papers={papers || []} />;
+  return (
+    <>
+      <PaperInput />
+      <PapersList papers={papers || []} />
+    </>
+  );
 }
