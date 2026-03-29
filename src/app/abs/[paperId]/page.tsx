@@ -85,7 +85,7 @@ export default async function PaperPage({
   }
 
   const articleContent = (
-    <ScrollContainer className="h-full px-5 py-8 sm:px-8 lg:px-12">
+    <ScrollContainer className="h-full px-5 pt-8 pb-24 sm:px-8 lg:px-12">
       <article className="mx-auto w-full max-w-2xl">
         <a
           href="/"
