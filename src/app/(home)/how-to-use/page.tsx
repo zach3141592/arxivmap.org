@@ -55,6 +55,11 @@ export default function HowToUsePage() {
           An AI-generated visual map of all your saved papers, clustered by topic.
           The map regenerates automatically when your paper list changes.
         </p>
+        <img
+          src="/example.png"
+          alt="Example of the 3D research map"
+          className="mt-4 w-full rounded-xl border border-gray-100"
+        />
       </section>
     </div>
   );
