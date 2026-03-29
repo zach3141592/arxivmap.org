@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 
 const tabs = [
+  { href: "/feed", label: "Feed" },
   { href: "/papers", label: "Papers" },
   { href: "/map", label: "My Map" },
   { href: "/how-to-use", label: "How to use" },

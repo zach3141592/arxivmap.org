@@ -22,17 +22,17 @@ interface SelectedInfo {
   position: THREE.Vector3;
 }
 
-/* ── Color palette ── */
+/* ── Color palette (dark, readable on white) ── */
 
 const PALETTE = [
-  { hex: "#60a5fa" },
-  { hex: "#fbbf24" },
-  { hex: "#34d399" },
-  { hex: "#a78bfa" },
-  { hex: "#f472b6" },
-  { hex: "#f87171" },
-  { hex: "#fde047" },
-  { hex: "#38bdf8" },
+  { hex: "#2563eb" },
+  { hex: "#d97706" },
+  { hex: "#059669" },
+  { hex: "#7c3aed" },
+  { hex: "#db2777" },
+  { hex: "#dc2626" },
+  { hex: "#ca8a04" },
+  { hex: "#0284c7" },
 ];
 
 const SCALE = 0.004;
@@ -92,12 +92,12 @@ function PaperNode({
         <Text
           position={[0.2, 0.02, 0]}
           fontSize={0.1}
-          color="white"
+          color="#1f2937"
           anchorX="left"
           anchorY="middle"
           maxWidth={2.0}
-          outlineWidth={0.012}
-          outlineColor="#0d1b3e"
+          outlineWidth={0.008}
+          outlineColor="white"
           fontWeight={600}
         >
           {label}
@@ -155,11 +155,11 @@ function HubNode({
         <Text
           position={[0.35, 0.08, 0]}
           fontSize={0.21}
-          color="white"
+          color="#111827"
           anchorX="left"
           anchorY="middle"
-          outlineWidth={0.018}
-          outlineColor="#0d1b3e"
+          outlineWidth={0.014}
+          outlineColor="white"
           fontWeight={700}
         >
           {label}
@@ -303,15 +303,14 @@ function DetailPopover({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "rgba(13, 27, 62, 0.96)",
-          border: `1px solid ${color}66`,
+          background: "white",
+          border: `1px solid ${color}55`,
           borderRadius: 10,
           padding: "12px 14px",
           width: 210,
-          boxShadow: `0 4px 30px rgba(0,0,0,0.5), 0 0 12px ${color}33`,
+          boxShadow: `0 4px 24px rgba(0,0,0,0.12), 0 0 0 1px ${color}22`,
           fontFamily: "system-ui, sans-serif",
           position: "relative",
-          backdropFilter: "blur(8px)",
         }}
       >
         <button
@@ -319,16 +318,16 @@ function DetailPopover({
           style={{
             position: "absolute", top: 8, right: 10,
             background: "none", border: "none", cursor: "pointer",
-            color: "#94a3b8", fontSize: 16, lineHeight: 1, padding: 0,
+            color: "#9ca3af", fontSize: 16, lineHeight: 1, padding: 0,
           }}
         >
           ×
         </button>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.4, paddingRight: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", lineHeight: 1.4, paddingRight: 16 }}>
           {info.paper.title}
         </div>
         {info.paper.authors && (
-          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
             {firstAuthor(info.paper.authors)}
           </div>
         )}
@@ -363,10 +362,10 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
 
   return (
     <>
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[8, 12, 8]} intensity={1.4} color="#ffffff" />
-      <directionalLight position={[-8, -4, -6]} intensity={0.35} color="#6080ff" />
-      <pointLight position={[0, 0, 10]} intensity={0.5} color="#a0c0ff" />
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[8, 12, 8]} intensity={1.0} color="#ffffff" />
+      <directionalLight position={[-6, -4, 6]} intensity={0.4} color="#e0e8ff" />
+      <pointLight position={[0, 0, 10]} intensity={0.3} color="#ffffff" />
 
       <HubConnections circles={circles} zOffsets={zOffsets} />
 
@@ -472,16 +471,15 @@ export function PaperMap({
 
   if (papers.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ background: "linear-gradient(135deg, #0f1f4e 0%, #1e3a8a 50%, #1a2f6e 100%)" }}>
-        <p className="text-sm text-blue-300">No papers yet. Save papers to build your research map.</p>
+      <div className="flex h-full items-center justify-center bg-white">
+        <p className="text-sm text-gray-400">No papers yet. Save papers to build your research map.</p>
       </div>
     );
   }
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #0f1f4e 0%, #1e3a8a 55%, #162d6a 100%)" }}
+      className="relative h-full w-full overflow-hidden bg-white"
     >
       {/* Three.js canvas */}
       <div style={{ position: "absolute", inset: 0, right: chatOpen ? chatWidth : 0 }}>
@@ -504,12 +502,12 @@ export function PaperMap({
           style={{
             width: chatWidth,
             zIndex: 20,
-            background: "rgba(10, 20, 50, 0.97)",
-            borderLeft: "1px solid rgba(96, 165, 250, 0.2)",
+            background: "white",
+            borderLeft: "1px solid #e5e7eb",
           }}
         >
           <div
-            className="absolute left-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-blue-400/30"
+            className="absolute left-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-gray-200"
             style={{ zIndex: 21 }}
             onPointerDown={(e) => {
               e.preventDefault();
@@ -531,10 +529,9 @@ export function PaperMap({
           onClick={() => setChatOpen(!chatOpen)}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
           style={{
-            background: chatOpen ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.1)",
-            border: chatOpen ? "1px solid rgba(96,165,250,0.5)" : "1px solid rgba(255,255,255,0.15)",
-            color: chatOpen ? "#93c5fd" : "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(8px)",
+            background: chatOpen ? "#eff6ff" : "white",
+            border: chatOpen ? "1px solid #bfdbfe" : "1px solid #e5e7eb",
+            color: chatOpen ? "#2563eb" : "#6b7280",
           }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -542,7 +539,7 @@ export function PaperMap({
           </svg>
           Chat
         </button>
-        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+        <span className="text-[10px] text-gray-400">
           Drag to rotate · Scroll to zoom · Right-drag to pan
         </span>
       </div>
