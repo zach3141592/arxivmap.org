@@ -35,7 +35,7 @@ const PALETTE = [
   { hex: "#0284c7" },
 ];
 
-const SCALE = 0.004;
+const SCALE = 0.009;
 
 function firstAuthor(authors?: string): string {
   if (!authors) return "";
@@ -194,7 +194,7 @@ function TopicCluster({
         const pos = circle.cardPositions[i];
         if (!pos) return null;
         const angleNoise = (i * 137.508 * Math.PI) / 180;
-        const zNoise = Math.sin(angleNoise + ci) * 0.8;
+        const zNoise = Math.sin(angleNoise + ci) * 1.8;
         return new THREE.Vector3(
           (circle.cx + pos.x) * SCALE,
           -(circle.cy + pos.y) * SCALE,
@@ -354,8 +354,8 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
   const zOffsets = useMemo(
     () =>
       circles.map((_, i) => {
-        const t = (i / Math.max(circles.length - 1, 1)) * Math.PI * 1.8 + 0.4;
-        return Math.sin(t) * 2.8 + Math.cos(t * 0.7) * 1.2;
+        const t = (i / Math.max(circles.length - 1, 1)) * Math.PI * 2.2 + 0.6;
+        return Math.sin(t) * 4.5 + Math.cos(t * 0.7) * 2.0;
       }),
     [circles]
   );
@@ -387,8 +387,8 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
         enablePan
         enableZoom
         enableRotate
-        minDistance={2}
-        maxDistance={50}
+        minDistance={3}
+        maxDistance={100}
         zoomSpeed={0.8}
         rotateSpeed={0.5}
         panSpeed={0.8}
@@ -484,7 +484,7 @@ export function PaperMap({
       {/* Three.js canvas */}
       <div style={{ position: "absolute", inset: 0, right: chatOpen ? chatWidth : 0 }}>
         <Canvas
-          camera={{ position: [0, 0, 14], fov: 55, near: 0.1, far: 200 }}
+          camera={{ position: [0, 0, 22], fov: 60, near: 0.1, far: 300 }}
           dpr={[1, 2]}
           gl={{ alpha: true, antialias: true }}
           style={{ background: "transparent" }}
