@@ -20,6 +20,19 @@ interface Paper {
   authors?: string;
 }
 
+/* ── Dark palette ── */
+
+const DARK_PALETTE = [
+  { border: "#3b82f6", glow: "rgba(59,130,246,0.35)",  text: "#93c5fd" },
+  { border: "#d97706", glow: "rgba(217,119,6,0.35)",   text: "#fcd34d" },
+  { border: "#059669", glow: "rgba(5,150,105,0.35)",   text: "#6ee7b7" },
+  { border: "#7c3aed", glow: "rgba(124,58,237,0.35)",  text: "#c4b5fd" },
+  { border: "#db2777", glow: "rgba(219,39,119,0.35)",  text: "#f9a8d4" },
+  { border: "#dc2626", glow: "rgba(220,38,38,0.35)",   text: "#fca5a5" },
+  { border: "#ca8a04", glow: "rgba(202,138,4,0.35)",   text: "#fde68a" },
+  { border: "#0284c7", glow: "rgba(2,132,199,0.35)",   text: "#7dd3fc" },
+];
+
 /* ── Helpers ── */
 
 function firstAuthor(authors?: string): string {
@@ -27,6 +40,10 @@ function firstAuthor(authors?: string): string {
   const first = authors.split(",")[0].trim();
   return authors.includes(",") ? `${first} et al.` : first;
 }
+
+/* ── Visual node size (visual only, positions still use CARD_W/CARD_H) ── */
+const NODE_W = 120;
+const NODE_H = 38;
 
 /* ── Component ── */
 
@@ -44,6 +61,7 @@ export function PaperMap({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
   const [selectedPos, setSelectedPos] = useState({ x: 0, y: 0 });
+  const [selectedTopicIdx, setSelectedTopicIdx] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -63,7 +81,6 @@ export function PaperMap({
         cardPositions: topic.cardPositions,
       }));
     }
-    // Fallback: single blob with all papers (no keyword classification)
     const positions = radialPositions(papers.length);
     const r = blobRadius(positions);
     return packCircles([{
@@ -80,9 +97,7 @@ export function PaperMap({
       const newWidth = Math.min(700, Math.max(280, chatDragStartW.current + (chatDragStartX.current - e.clientX)));
       setChatWidth(newWidth);
     };
-    const onPointerUp = () => {
-      chatDragRef.current = false;
-    };
+    const onPointerUp = () => { chatDragRef.current = false; };
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", onPointerUp);
     return () => {
@@ -185,8 +200,8 @@ export function PaperMap({
   const mapContent = (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden bg-white ${
-        isFullscreen ? "h-full w-full" : "h-full rounded-2xl border border-gray-200"
+      className={`relative overflow-hidden bg-[#0d0d0e] ${
+        isFullscreen ? "h-full w-full" : "h-full rounded-2xl border border-[#1f1f23]"
       }`}
       style={{ cursor: dragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
@@ -196,13 +211,12 @@ export function PaperMap({
       onMouseLeave={handleMouseUp}
       onClick={() => setSelectedPaper(null)}
     >
-      {/* Subtle dot grid */}
+      {/* Subtle dark grid */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: "radial-gradient(circle, #d1d5db 0.5px, transparent 0.5px)",
-          backgroundSize: "24px 24px",
-          opacity: 0.3,
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`,
+          backgroundSize: "32px 32px",
         }}
       />
 
@@ -213,122 +227,160 @@ export function PaperMap({
           transformOrigin: "0 0",
         }}
       >
-        {/* SVG circles with soft edges */}
+        {/* SVG edges + hub circles */}
         <svg
           className="pointer-events-none absolute overflow-visible"
           style={{ left: 0, top: 0, width: 1, height: 1 }}
         >
           <defs>
-            <filter id="soft-edge" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="18" />
-            </filter>
-          </defs>
-          {circles.map((c) => (
-            <circle
-              key={`bg-${c.topic.label}`}
-              cx={c.cx}
-              cy={c.cy}
-              r={c.r - 10}
-              fill={c.topic.fill}
-              stroke="none"
-              filter="url(#soft-edge)"
-            />
-          ))}
-        </svg>
-
-        {/* Topic circles with cards */}
-        {circles.map((circle) => {
-          // Find the direction away from other circles for label placement
-          const awayDir = (() => {
-            let dx = 0, dy = 0;
-            for (const other of circles) {
-              if (other === circle) continue;
-              dx += circle.cx - other.cx;
-              dy += circle.cy - other.cy;
-            }
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len === 0) return { x: 0, y: -1 }; // default: top
-            return { x: dx / len, y: dy / len };
-          })();
-
-          return (
-          <div key={circle.topic.label}>
-            {/* Topic label */}
-            <div
-              className="pointer-events-none absolute flex flex-col items-center"
-              style={{
-                left: circle.cx + awayDir.x * (circle.r - 24),
-                top: circle.cy + awayDir.y * (circle.r - 24),
-                transform: "translate(-50%, -50%)",
-                zIndex: 20,
-              }}
-            >
-              <span
-                className="rounded-full bg-white px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider shadow-sm"
-                style={{ color: circle.topic.text }}
-              >
-                {circle.topic.label}
-              </span>
-              <span className="mt-0.5 text-[10px] text-gray-400">
-                {circle.papers.length}
-              </span>
-            </div>
-
-            {/* Paper cards */}
-            {circle.papers.map((paper, i) => {
-              const pos = circle.cardPositions[i];
-              if (!pos) return null;
-              const author = firstAuthor(paper.authors);
-              const isHovered = hoveredCard === paper.arxiv_id;
-              const isSelected = selectedPaper?.arxiv_id === paper.arxiv_id;
-
+            {circles.map((c, ci) => {
+              const color = DARK_PALETTE[ci % DARK_PALETTE.length];
               return (
-                <div
-                  key={paper.arxiv_id}
-                  data-card
-                  className="absolute cursor-pointer rounded-xl bg-white transition-all duration-200"
-                  style={{
-                    left: circle.cx + pos.x - CARD_W / 2,
-                    top: circle.cy + pos.y - CARD_H / 2,
-                    width: CARD_W,
-                    minHeight: CARD_H,
-                    zIndex: isHovered || isSelected ? 15 : 10,
-                    boxShadow: isHovered
-                      ? "0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)"
-                      : "0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-                    transform: isHovered ? "translateY(-2px)" : "translateY(0)",
-                  }}
-                  onMouseEnter={() => setHoveredCard(paper.arxiv_id)}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (selectedPaper?.arxiv_id === paper.arxiv_id) {
-                      setSelectedPaper(null);
-                    } else {
-                      const cardRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const containerRect = containerRef.current!.getBoundingClientRect();
-                      setSelectedPos({
-                        x: (cardRect.left - containerRect.left - pan.x) / zoom,
-                        y: (cardRect.bottom - containerRect.top - pan.y) / zoom + 8,
-                      });
-                      setSelectedPaper(paper);
-                    }
-                  }}
-                >
-                  <div className="flex flex-col justify-center px-3.5 py-3">
-                    <p className="text-[12px] font-medium leading-snug text-gray-800">
-                      {paper.title}
-                    </p>
-                    {author && (
-                      <p className="mt-1 text-[11px] text-gray-400">
-                        {author}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <filter key={`glow-${ci}`} id={`hub-glow-${ci}`} x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
               );
             })}
-          </div>
+          </defs>
+
+          {circles.map((c, ci) => {
+            const color = DARK_PALETTE[ci % DARK_PALETTE.length];
+            return (
+              <g key={`edges-${c.topic.label}`}>
+                {/* Spoke lines from hub to each card */}
+                {c.papers.map((paper, i) => {
+                  const pos = c.cardPositions[i];
+                  if (!pos) return null;
+                  const cardX = c.cx + pos.x;
+                  const cardY = c.cy + pos.y;
+                  return (
+                    <line
+                      key={paper.arxiv_id}
+                      x1={c.cx}
+                      y1={c.cy}
+                      x2={cardX}
+                      y2={cardY}
+                      stroke={color.border}
+                      strokeOpacity={0.25}
+                      strokeWidth={1}
+                    />
+                  );
+                })}
+                {/* Hub circle */}
+                <circle
+                  cx={c.cx}
+                  cy={c.cy}
+                  r={6}
+                  fill={color.border}
+                  filter={`url(#hub-glow-${ci})`}
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Topic labels + paper nodes */}
+        {circles.map((circle, ci) => {
+          const color = DARK_PALETTE[ci % DARK_PALETTE.length];
+
+          return (
+            <div key={circle.topic.label}>
+              {/* Hub label */}
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: circle.cx,
+                  top: circle.cy - 18,
+                  transform: "translate(-50%, -100%)",
+                  zIndex: 20,
+                }}
+              >
+                <span
+                  className="rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest"
+                  style={{
+                    color: color.text,
+                    background: "rgba(13,13,14,0.75)",
+                    border: `1px solid ${color.border}`,
+                    borderOpacity: 0.4,
+                  }}
+                >
+                  {circle.topic.label}
+                </span>
+              </div>
+
+              {/* Paper nodes */}
+              {circle.papers.map((paper, i) => {
+                const pos = circle.cardPositions[i];
+                if (!pos) return null;
+                const author = firstAuthor(paper.authors);
+                const isHovered = hoveredCard === paper.arxiv_id;
+                const isSelected = selectedPaper?.arxiv_id === paper.arxiv_id;
+
+                return (
+                  <div
+                    key={paper.arxiv_id}
+                    data-card
+                    className="absolute cursor-pointer transition-all duration-150"
+                    style={{
+                      left: circle.cx + pos.x - NODE_W / 2,
+                      top: circle.cy + pos.y - NODE_H / 2,
+                      width: NODE_W,
+                      height: NODE_H,
+                      zIndex: isHovered || isSelected ? 15 : 10,
+                      background: "#13121a",
+                      border: `1px solid ${color.border}`,
+                      borderRadius: 6,
+                      opacity: isHovered || isSelected ? 1 : 0.6,
+                      boxShadow: isHovered || isSelected
+                        ? `0 0 12px ${color.glow}, 0 0 4px ${color.glow}`
+                        : "none",
+                      transform: isHovered ? "translateY(-1px)" : "translateY(0)",
+                    }}
+                    onMouseEnter={() => setHoveredCard(paper.arxiv_id)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (selectedPaper?.arxiv_id === paper.arxiv_id) {
+                        setSelectedPaper(null);
+                      } else {
+                        const cardRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const containerRect = containerRef.current!.getBoundingClientRect();
+                        setSelectedPos({
+                          x: (cardRect.left - containerRect.left - pan.x) / zoom,
+                          y: (cardRect.bottom - containerRect.top - pan.y) / zoom + 8,
+                        });
+                        setSelectedPaper(paper);
+                        setSelectedTopicIdx(ci);
+                      }
+                    }}
+                  >
+                    <div className="flex flex-col justify-center px-2 py-1 h-full overflow-hidden">
+                      <p
+                        className="text-[10px] font-medium leading-tight overflow-hidden"
+                        style={{
+                          color: color.text,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {paper.title}
+                      </p>
+                      {author && (
+                        <p className="mt-0.5 text-[9px] truncate" style={{ color: color.text, opacity: 0.6 }}>
+                          {author}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           );
         })}
 
@@ -336,17 +388,23 @@ export function PaperMap({
         {selectedPaper && (
           <div
             data-detail
-            className="absolute z-20 w-72 rounded-xl bg-white p-4"
-            style={{ left: selectedPos.x, top: selectedPos.y, boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}
+            className="absolute z-20 w-64 rounded-xl p-4"
+            style={{
+              left: selectedPos.x,
+              top: selectedPos.y,
+              background: "#1a1a20",
+              border: "1px solid #2d2d35",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-bold leading-snug text-gray-900">
+              <h3 className="text-sm font-bold leading-snug text-white">
                 {selectedPaper.title}
               </h3>
               <button
                 onClick={() => setSelectedPaper(null)}
-                className="shrink-0 text-gray-400 hover:text-gray-600"
+                className="shrink-0 text-gray-500 hover:text-gray-300"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -360,7 +418,8 @@ export function PaperMap({
             <div className="mt-3">
               <a
                 href={`/abs/${selectedPaper.arxiv_id}`}
-                className="inline-flex items-center gap-0.5 text-xs font-medium text-black hover:underline"
+                className="inline-flex items-center gap-0.5 text-xs font-medium hover:underline"
+                style={{ color: DARK_PALETTE[selectedTopicIdx % DARK_PALETTE.length].text }}
               >
                 View paper
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -376,7 +435,8 @@ export function PaperMap({
       <div className="absolute bottom-3 left-3 flex gap-1">
         <button
           onClick={() => setIsFullscreen(!isFullscreen)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:text-gray-100"
+          style={{ background: "#1a1a20", border: "1px solid #2d2d35" }}
         >
           {isFullscreen ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -396,18 +456,19 @@ export function PaperMap({
         </button>
         <button
           onClick={() => setZoom(Math.min(3, zoom * 1.2))}
-          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          className="h-7 w-7 rounded-lg text-xs text-gray-400 transition-colors hover:text-gray-100"
+          style={{ background: "#1a1a20", border: "1px solid #2d2d35" }}
         >
           +
         </button>
         <button
           onClick={() => setZoom(Math.max(0.05, zoom * 0.8))}
-          className="h-7 w-7 rounded-lg bg-white text-xs text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          className="h-7 w-7 rounded-lg text-xs text-gray-400 transition-colors hover:text-gray-100"
+          style={{ background: "#1a1a20", border: "1px solid #2d2d35" }}
         >
           -
         </button>
       </div>
-
     </div>
   );
 
@@ -416,11 +477,11 @@ export function PaperMap({
       <>
         <div className="h-[500px]" />
         {createPortal(
-          <div style={{ position: "fixed", inset: 0, zIndex: 99999 }} className="flex flex-col">
-            <header className="flex items-center gap-4 border-b border-gray-100 bg-white px-6 py-3">
+          <div style={{ position: "fixed", inset: 0, zIndex: 99999 }} className="flex flex-col bg-[#0d0d0e]">
+            <header className="flex items-center gap-4 border-b border-[#1f1f23] bg-[#0d0d0e] px-6 py-3">
               <a
                 href="/"
-                className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-800"
+                className="flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-200"
               >
                 &larr;
                 <img src="/arxivmap.png" alt="" className="h-5 w-5" />
@@ -431,15 +492,15 @@ export function PaperMap({
                 onClick={() => setChatOpen(!chatOpen)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
                   chatOpen
-                    ? "bg-gray-900 text-white"
-                    : "border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-800"
+                    ? "bg-gray-100 text-gray-900"
+                    : "border border-[#2d2d35] text-gray-400 hover:border-gray-500 hover:text-gray-200"
                 }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setIsFullscreen(false)}
-                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-500 transition-all hover:border-gray-400 hover:text-gray-800"
+                className="rounded-full border border-[#2d2d35] px-4 py-1.5 text-sm font-medium text-gray-400 transition-all hover:border-gray-500 hover:text-gray-200"
               >
                 Exit fullscreen
               </button>
@@ -447,9 +508,9 @@ export function PaperMap({
             <div className="relative flex flex-1 overflow-hidden">
               <div className="flex-1">{mapContent}</div>
               {chatOpen && (
-                <aside className="absolute right-0 top-0 z-20 h-full shadow-lg bg-white" style={{ width: chatWidth }}>
+                <aside className="absolute right-0 top-0 z-20 h-full shadow-lg" style={{ width: chatWidth, background: "#0d0d0e" }}>
                   <div
-                    className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize hover:bg-gray-300 active:bg-gray-400 transition-colors"
+                    className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-gray-700 active:bg-gray-500"
                     onPointerDown={(e) => {
                       e.preventDefault();
                       chatDragRef.current = true;
@@ -457,7 +518,7 @@ export function PaperMap({
                       chatDragStartW.current = chatWidth;
                     }}
                   />
-                  <div className="h-full border-l border-gray-100">
+                  <div className="h-full border-l border-[#1f1f23]">
                     <ChatPanel abstract={chatContext} contextId="map" />
                   </div>
                 </aside>
