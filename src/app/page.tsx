@@ -22,15 +22,34 @@ export default async function Home() {
           Arxiv Map
         </h1>
         <p className="mt-3 text-sm tracking-wide text-gray-400">
-          Your personal research library, powered by AI.
+          Your personal research library.
         </p>
-        <LandingInput />
         <ul className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-400">
           <li>Save papers</li>
           <li>Get AI summaries</li>
-          <li>Map your research</li>
-          <li>Scroll through new papers</li>
+          <li>Graph your research</li>
+          <li>Doomscroll through new papers</li>
         </ul>
+        <LandingInput />
+        <div className="mt-8 w-full text-left">
+          <p className="text-base font-semibold text-gray-900">The fastest way to analyze any paper</p>
+          <p className="mt-1.5 text-sm text-gray-400">
+            When you&apos;re on any arXiv paper, just add <span className="font-mono text-gray-600">map</span> after <span className="font-mono text-gray-600">arxiv</span> in the URL:
+          </p>
+          <div className="mt-3 rounded-xl bg-gray-50 px-5 py-4 text-sm">
+            <div className="flex items-baseline gap-4">
+              <span className="w-12 shrink-0 text-gray-400">Before</span>
+              <span className="font-mono text-gray-500">arxiv.org/abs/2601.14242</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-4">
+              <span className="w-12 shrink-0 text-gray-400">After</span>
+              <span className="font-mono text-gray-800">arxiv<span className="text-red-500">map</span>.org/abs/2601.14242</span>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-gray-400">
+            That&apos;s it — you&apos;ll land directly on the Arxiv Map summary for that paper.
+          </p>
+        </div>
       </main>
       <footer className="mt-20">
         <a
