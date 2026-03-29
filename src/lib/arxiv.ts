@@ -17,7 +17,7 @@ async function fetchFromArxiv(paperId: string): Promise<ArxivPaper | null> {
   try {
     const res = await fetch(
       `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(paperId)}`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(7000) }
     );
     if (!res.ok) return null;
 
@@ -51,7 +51,7 @@ async function fetchFromSemanticScholar(paperId: string): Promise<ArxivPaper | n
   try {
     const res = await fetch(
       `https://api.semanticscholar.org/graph/v1/paper/arXiv:${paperId}?fields=title,authors,abstract,year,publicationDate`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(7000) }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -72,10 +72,16 @@ async function fetchFromSemanticScholar(paperId: string): Promise<ArxivPaper | n
 export async function fetchArxivPaper(
   paperId: string
 ): Promise<ArxivPaper | null> {
-  const arxivResult = await fetchFromArxiv(paperId);
-  if (arxivResult) return arxivResult;
-  // Fallback: Semantic Scholar works reliably from cloud environments
-  return fetchFromSemanticScholar(paperId);
+  // Fire both in parallel — take whichever succeeds first.
+  // This avoids blowing Vercel's 10s timeout when arxiv is slow to reject.
+  try {
+    return await Promise.any([
+      fetchFromSemanticScholar(paperId),
+      fetchFromArxiv(paperId),
+    ]);
+  } catch {
+    return null;
+  }
 }
 
 function parseArxivEntry(entry: string): ArxivSearchResult | null {
