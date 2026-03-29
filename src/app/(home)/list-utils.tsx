@@ -5,12 +5,10 @@ import { useState, useRef, useEffect } from "react";
 export function ThreeDotMenu({
   onRename,
   onEdit,
-  onDownload,
   onDelete,
 }: {
   onRename: () => void;
   onEdit: () => void;
-  onDownload: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,12 +53,6 @@ export function ThreeDotMenu({
           >
             Edit
           </button>
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onDownload(); }}
-            className="w-full px-3.5 py-2 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
-          >
-            Download
-          </button>
           <div className="my-1 border-t border-gray-100" />
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onDelete(); }}
@@ -72,14 +64,4 @@ export function ThreeDotMenu({
       )}
     </div>
   );
-}
-
-export function downloadJSON(filename: string, data: Record<string, unknown>) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

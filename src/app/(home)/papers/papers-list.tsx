@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ThreeDotMenu, downloadJSON } from "../list-utils";
+import { ThreeDotMenu } from "../list-utils";
 
 interface Paper {
   arxiv_id: string;
@@ -83,13 +83,6 @@ export function PapersList({ papers }: { papers: Paper[] }) {
               <ThreeDotMenu
                 onRename={() => { setRenameValue(paper.title); setRenamingId(paper.arxiv_id); }}
                 onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
-                onDownload={() =>
-                  downloadJSON(`${paper.arxiv_id}.json`, {
-                    arxiv_id: paper.arxiv_id,
-                    title: paper.title,
-                    created_at: paper.created_at,
-                  })
-                }
                 onDelete={() => deletePaper(paper.arxiv_id)}
               />
             </div>

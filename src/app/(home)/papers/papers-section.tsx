@@ -62,47 +62,6 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
     setRenamingId(null);
   }
 
-  async function downloadPaperAsPdf(arxivId: string, fallbackTitle: string) {
-    const res = await fetch(`/api/paper?id=${arxivId}`);
-    const data = res.ok ? await res.json() : { title: fallbackTitle, authors: "", abstract: "", summary: "" };
-
-    const escape = (s: string) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const formatSummary = (s: string) =>
-      escape(s)
-        .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/^- (.+)$/gm, "<li>$1</li>")
-        .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
-        .replace(/\n\n/g, "<br/><br/>");
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head>
-      <title>${escape(data.title)}</title>
-      <style>
-        body { font-family: Georgia, serif; max-width: 680px; margin: 48px auto; padding: 0 24px; color: #111; line-height: 1.6; }
-        h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-        .authors { color: #555; font-size: 14px; margin-bottom: 4px; }
-        .meta { color: #999; font-size: 12px; margin-bottom: 28px; }
-        h2 { font-size: 15px; font-weight: 600; margin-top: 24px; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .abstract { font-size: 13px; color: #444; border-left: 3px solid #ddd; padding-left: 14px; margin: 0; }
-        .summary { font-size: 14px; }
-        ul { padding-left: 20px; margin: 6px 0; }
-        li { margin-bottom: 4px; }
-        @media print { body { margin: 0; } }
-      </style>
-    </head><body>
-      <h1>${escape(data.title)}</h1>
-      <div class="authors">${escape(data.authors || "")}</div>
-      <div class="meta">arXiv: ${arxivId} &nbsp;·&nbsp; arxivmap.org/abs/${arxivId}</div>
-      ${data.abstract ? `<h2>Abstract</h2><p class="abstract">${escape(data.abstract)}</p>` : ""}
-      ${data.summary ? `<h2>AI Summary</h2><div class="summary">${formatSummary(data.summary)}</div>` : ""}
-    </body></html>`);
-    win.document.close();
-    win.focus();
-    win.onload = () => { win.print(); win.onafterprint = () => win.close(); };
-  }
-
   async function deletePaper(arxivId: string) {
     const res = await fetch(`/api/paper?id=${arxivId}`, { method: "DELETE" });
     if (res.ok) {
@@ -170,7 +129,6 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
                   <ThreeDotMenu
                     onRename={() => { setRenameValue(paper.title); setRenamingId(paper.arxiv_id); }}
                     onEdit={() => router.push(`/abs/${paper.arxiv_id}`)}
-                    onDownload={() => downloadPaperAsPdf(paper.arxiv_id, paper.title)}
                     onDelete={() => deletePaper(paper.arxiv_id)}
                   />
                 </div>

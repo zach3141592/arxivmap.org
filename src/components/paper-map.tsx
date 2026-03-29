@@ -1,14 +1,16 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { useRef, useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Html, OrbitControls, Line } from "@react-three/drei";
+import * as THREE from "three";
 import {
-  CARD_W,
-  CARD_H,
   radialPositions,
   blobRadius,
   packCircles,
 } from "@/lib/map-layout";
 import type { StoredMapData } from "@/lib/paper-map-ai";
+import { ChatPanel } from "@/app/abs/[paperId]/chat-panel";
 
 /* ── Types ── */
 
@@ -18,17 +20,23 @@ interface Paper {
   authors?: string;
 }
 
-/* ── Color palette ── */
+interface SelectedInfo {
+  paper: Paper;
+  topicIdx: number;
+  position: THREE.Vector3;
+}
+
+/* ── Palette ── */
 
 const PALETTE = [
-  { border: "#3b82f6", glow: "rgba(59,130,246,0.3)",  text: "#2563eb" },
-  { border: "#d97706", glow: "rgba(217,119,6,0.3)",   text: "#b45309" },
-  { border: "#059669", glow: "rgba(5,150,105,0.3)",   text: "#047857" },
-  { border: "#7c3aed", glow: "rgba(124,58,237,0.3)",  text: "#6d28d9" },
-  { border: "#db2777", glow: "rgba(219,39,119,0.3)",  text: "#be185d" },
-  { border: "#dc2626", glow: "rgba(220,38,38,0.3)",   text: "#b91c1c" },
-  { border: "#ca8a04", glow: "rgba(202,138,4,0.3)",   text: "#a16207" },
-  { border: "#0284c7", glow: "rgba(2,132,199,0.3)",   text: "#0369a1" },
+  { hex: "#3b82f6", rgb: [0.23, 0.51, 0.96] as [number, number, number] },
+  { hex: "#f59e0b", rgb: [0.96, 0.62, 0.04] as [number, number, number] },
+  { hex: "#10b981", rgb: [0.06, 0.73, 0.51] as [number, number, number] },
+  { hex: "#8b5cf6", rgb: [0.55, 0.36, 0.96] as [number, number, number] },
+  { hex: "#ec4899", rgb: [0.93, 0.29, 0.60] as [number, number, number] },
+  { hex: "#ef4444", rgb: [0.94, 0.27, 0.27] as [number, number, number] },
+  { hex: "#eab308", rgb: [0.92, 0.70, 0.03] as [number, number, number] },
+  { hex: "#06b6d4", rgb: [0.02, 0.71, 0.83] as [number, number, number] },
 ];
 
 /* ── Helpers ── */
@@ -39,11 +47,366 @@ function firstAuthor(authors?: string): string {
   return authors.includes(",") ? `${first} et al.` : first;
 }
 
-/* ── Visual node size ── */
-const NODE_W = 120;
-const NODE_H = 38;
+const SCALE = 0.006; // convert layout px → Three.js units
 
-/* ── Component ── */
+/* ── Hub sphere ── */
+
+function HubSphere({ position, color }: { position: THREE.Vector3; color: [number, number, number] }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
+
+  useFrame((_, delta) => {
+    if (glowRef.current) {
+      glowRef.current.rotation.y += delta * 0.4;
+      glowRef.current.rotation.x += delta * 0.2;
+    }
+  });
+
+  return (
+    <group position={position}>
+      {/* Outer glow */}
+      <mesh ref={glowRef}>
+        <sphereGeometry args={[0.18, 16, 16]} />
+        <meshBasicMaterial color={new THREE.Color(...color)} transparent opacity={0.12} />
+      </mesh>
+      {/* Core */}
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[0.09, 20, 20]} />
+        <meshStandardMaterial
+          color={new THREE.Color(...color)}
+          emissive={new THREE.Color(...color)}
+          emissiveIntensity={1.2}
+          roughness={0.2}
+          metalness={0.4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/* ── Paper node card ── */
+
+function PaperNode({
+  paper,
+  position,
+  color,
+  topicIdx,
+  onSelect,
+}: {
+  paper: Paper;
+  position: THREE.Vector3;
+  color: { hex: string; rgb: [number, number, number] };
+  topicIdx: number;
+  onSelect: (info: SelectedInfo) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (meshRef.current) {
+      const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = THREE.MathUtils.lerp(
+        mat.emissiveIntensity,
+        hovered ? 0.6 : 0.05,
+        0.12
+      );
+    }
+  });
+
+  const author = firstAuthor(paper.authors);
+
+  return (
+    <group
+      position={position}
+      onPointerEnter={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerLeave={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onClick={(e) => { e.stopPropagation(); onSelect({ paper, topicIdx, position }); }}
+    >
+      {/* Card plane */}
+      <mesh ref={meshRef}>
+        <planeGeometry args={[1.0, 0.32]} />
+        <meshStandardMaterial
+          color={0xffffff}
+          emissive={new THREE.Color(...color.rgb)}
+          emissiveIntensity={0.05}
+          roughness={0.8}
+          metalness={0}
+          transparent
+          opacity={hovered ? 1 : 0.92}
+        />
+      </mesh>
+      {/* Border outline */}
+      <lineSegments>
+        <edgesGeometry args={[new THREE.PlaneGeometry(1.0, 0.32)]} />
+        <lineBasicMaterial color={color.hex} transparent opacity={hovered ? 0.9 : 0.45} />
+      </lineSegments>
+      {/* HTML label */}
+      <Html
+        center
+        style={{ pointerEvents: "none", width: 110, userSelect: "none" }}
+        distanceFactor={6}
+      >
+        <div style={{ textAlign: "center", lineHeight: 1.2 }}>
+          <div style={{
+            fontSize: 9,
+            fontWeight: 600,
+            color: "#1f2937",
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            fontFamily: "system-ui, sans-serif",
+          }}>
+            {paper.title}
+          </div>
+          {author && (
+            <div style={{
+              fontSize: 8,
+              color: "#9ca3af",
+              marginTop: 2,
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+              fontFamily: "system-ui, sans-serif",
+            }}>
+              {author}
+            </div>
+          )}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+/* ── Topic cluster ── */
+
+function TopicCluster({
+  circle,
+  ci,
+  zOffset,
+  onSelect,
+}: {
+  circle: ReturnType<typeof packCircles>[0];
+  ci: number;
+  zOffset: number;
+  onSelect: (info: SelectedInfo) => void;
+}) {
+  const color = PALETTE[ci % PALETTE.length];
+  const hubPos = new THREE.Vector3(circle.cx * SCALE, -circle.cy * SCALE, zOffset);
+
+  const spokes = useMemo(() => {
+    return circle.papers.map((_, i) => {
+      const pos = circle.cardPositions[i];
+      if (!pos) return null;
+      const x = (circle.cx + pos.x) * SCALE;
+      const y = -(circle.cy + pos.y) * SCALE;
+      const z = zOffset;
+      return new THREE.Vector3(x, y, z);
+    });
+  }, [circle, zOffset]);
+
+  return (
+    <group>
+      {/* Hub sphere */}
+      <HubSphere position={hubPos} color={color.rgb} />
+
+      {/* Hub label */}
+      <Html position={hubPos.clone().add(new THREE.Vector3(0, 0.22, 0))} center distanceFactor={5}>
+        <div style={{
+          background: "rgba(255,255,255,0.92)",
+          border: `1px solid ${color.hex}`,
+          borderRadius: 20,
+          padding: "2px 8px",
+          fontSize: 8,
+          fontWeight: 700,
+          color: color.hex,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          whiteSpace: "nowrap",
+          fontFamily: "system-ui, sans-serif",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}>
+          {circle.topic.label}
+        </div>
+      </Html>
+
+      {/* Spoke lines */}
+      {spokes.map((nodePos, i) => {
+        if (!nodePos) return null;
+        return (
+          <Line
+            key={i}
+            points={[hubPos, nodePos]}
+            color={color.hex}
+            lineWidth={0.8}
+            transparent
+            opacity={0.2}
+          />
+        );
+      })}
+
+      {/* Paper nodes */}
+      {circle.papers.map((paper, i) => {
+        const nodePos = spokes[i];
+        if (!nodePos) return null;
+        return (
+          <PaperNode
+            key={paper.arxiv_id}
+            paper={paper}
+            position={nodePos}
+            color={color}
+            topicIdx={ci}
+            onSelect={onSelect}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+/* ── Detail popover (HTML overlay) ── */
+
+function DetailPopover({
+  info,
+  onClose,
+}: {
+  info: SelectedInfo;
+  onClose: () => void;
+}) {
+  const color = PALETTE[info.topicIdx % PALETTE.length];
+
+  // Project 3D position to screen
+  return (
+    <Html
+      position={info.position.clone().add(new THREE.Vector3(0, -0.25, 0))}
+      center
+      style={{ pointerEvents: "all" }}
+      distanceFactor={4}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: "14px 16px",
+          width: 220,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+          fontFamily: "system-ui, sans-serif",
+          position: "relative",
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#9ca3af",
+            fontSize: 14,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ×
+        </button>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", lineHeight: 1.4, paddingRight: 16 }}>
+          {info.paper.title}
+        </div>
+        {info.paper.authors && (
+          <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>
+            {info.paper.authors}
+          </div>
+        )}
+        <a
+          href={`/abs/${info.paper.arxiv_id}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            marginTop: 10,
+            fontSize: 11,
+            fontWeight: 600,
+            color: color.hex,
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+        >
+          View paper →
+        </a>
+      </div>
+    </Html>
+  );
+}
+
+/* ── Scene ── */
+
+function Scene({
+  circles,
+}: {
+  circles: ReturnType<typeof packCircles>;
+}) {
+  const [selected, setSelected] = useState<SelectedInfo | null>(null);
+  const { gl } = useThree();
+
+  // Z offsets to give clusters depth
+  const zOffsets = useMemo(() =>
+    circles.map((_, i) => {
+      const seed = i * 2.3 + 0.7;
+      return (Math.sin(seed) * 0.5 + Math.cos(seed * 1.7) * 0.3) * 2.5;
+    }),
+  [circles]);
+
+  useEffect(() => {
+    const handleClick = () => setSelected(null);
+    gl.domElement.addEventListener("click", handleClick);
+    return () => gl.domElement.removeEventListener("click", handleClick);
+  }, [gl]);
+
+  return (
+    <>
+      <color attach="background" args={["#f8fafc"]} />
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[5, 10, 7]} intensity={0.8} />
+      <pointLight position={[-5, -5, 5]} intensity={0.4} color="#e0e7ff" />
+
+      {circles.map((circle, ci) => (
+        <TopicCluster
+          key={circle.topic.label}
+          circle={circle}
+          ci={ci}
+          zOffset={zOffsets[ci]}
+          onSelect={(info) => { setSelected(info); }}
+        />
+      ))}
+
+      {selected && (
+        <DetailPopover
+          info={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
+
+      <OrbitControls
+        enablePan
+        enableZoom
+        enableRotate
+        minDistance={1}
+        maxDistance={40}
+        zoomSpeed={0.8}
+        rotateSpeed={0.5}
+        panSpeed={0.8}
+        makeDefault
+      />
+    </>
+  );
+}
+
+/* ── Main component ── */
 
 export function PaperMap({
   papers,
@@ -52,15 +415,11 @@ export function PaperMap({
   papers: Paper[];
   cachedMap?: StoredMapData | null;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [dragging, setDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
-  const [selectedPos, setSelectedPos] = useState({ x: 0, y: 0 });
-  const [selectedTopicIdx, setSelectedTopicIdx] = useState(0);
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatWidth, setChatWidth] = useState(380);
+  const chatDragRef = useRef(false);
+  const chatDragStartX = useRef(0);
+  const chatDragStartW = useRef(380);
 
   const circles = useMemo(() => {
     if (cachedMap) {
@@ -76,329 +435,95 @@ export function PaperMap({
     const positions = radialPositions(papers.length);
     const r = blobRadius(positions);
     return packCircles([{
-      topic: { label: "Papers", keywords: [], fill: "rgba(209,213,219,0.35)", stroke: "none", text: "#6b7280" },
+      topic: { label: "Papers", keywords: [], fill: "#e5e7eb", stroke: "none", text: "#6b7280" },
       papers,
       r,
       cardPositions: positions,
     }]);
   }, [cachedMap, papers]);
 
-  const bounds = useMemo(() => {
-    if (circles.length === 0) return { minX: -400, minY: -300, maxX: 400, maxY: 300 };
-    const minX = Math.min(...circles.map((c) => c.cx - c.r)) - 50;
-    const minY = Math.min(...circles.map((c) => c.cy - c.r)) - 50;
-    const maxX = Math.max(...circles.map((c) => c.cx + c.r)) + 50;
-    const maxY = Math.max(...circles.map((c) => c.cy + c.r)) + 50;
-    return { minX, minY, maxX, maxY };
+  const chatContext = useMemo(() => {
+    const total = circles.reduce((s, c) => s + c.papers.length, 0);
+    let ctx = `Paper map with ${total} papers across ${circles.length} topics:\n`;
+    for (const c of circles) {
+      ctx += `\nTopic: "${c.topic.label}"\n`;
+      for (const p of c.papers) ctx += `- "${p.title}" (${p.arxiv_id})\n`;
+    }
+    return ctx;
   }, [circles]);
 
-  const canvasW = bounds.maxX - bounds.minX;
-  const canvasH = bounds.maxY - bounds.minY;
-
   useEffect(() => {
-    if (circles.length === 0 || !containerRef.current) return;
-    const frame = requestAnimationFrame(() => {
-      const rect = containerRef.current!.getBoundingClientRect();
-      const scaleX = rect.width / canvasW;
-      const scaleY = rect.height / canvasH;
-      const scale = Math.min(scaleX, scaleY, 1.0);
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const centerY = (bounds.minY + bounds.maxY) / 2;
-      setZoom(scale);
-      setPan({
-        x: rect.width / 2 - centerX * scale,
-        y: rect.height / 2 - centerY * scale,
-      });
-    });
-    return () => cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [circles.length]);
-
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newZoom = Math.max(0.05, Math.min(3, zoom * delta));
-      setPan({
-        x: mouseX - (mouseX - pan.x) * (newZoom / zoom),
-        y: mouseY - (mouseY - pan.y) * (newZoom / zoom),
-      });
-      setZoom(newZoom);
-    },
-    [zoom, pan]
-  );
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      if ((e.target as HTMLElement).closest("[data-card], [data-detail]")) return;
-      setDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    },
-    [pan]
-  );
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!dragging) return;
-      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-    },
-    [dragging, dragStart]
-  );
-
-  const handleMouseUp = useCallback(() => setDragging(false), []);
+    const onMove = (e: PointerEvent) => {
+      if (!chatDragRef.current) return;
+      const w = Math.min(700, Math.max(280, chatDragStartW.current + (chatDragStartX.current - e.clientX)));
+      setChatWidth(w);
+    };
+    const onUp = () => { chatDragRef.current = false; };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    return () => { document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+  }, []);
 
   if (papers.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-white">
-        <p className="text-sm text-gray-400">
-          No papers yet. Save papers to build your research map.
-        </p>
+        <p className="text-sm text-gray-400">No papers yet. Save papers to build your research map.</p>
       </div>
     );
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-white"
-      style={{ cursor: dragging ? "grabbing" : "grab" }}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onClick={() => setSelectedPaper(null)}
-    >
-      {/* Subtle dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage: "radial-gradient(circle, #d1d5db 0.6px, transparent 0.6px)",
-          backgroundSize: "28px 28px",
-          opacity: 0.5,
-        }}
-      />
-
-      <div
-        className="relative"
-        style={{
-          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-          transformOrigin: "0 0",
-        }}
-      >
-        {/* SVG edges + hub circles */}
-        <svg
-          className="pointer-events-none absolute overflow-visible"
-          style={{ left: 0, top: 0, width: 1, height: 1 }}
+    <div className="relative h-full w-full overflow-hidden bg-[#f8fafc]">
+      {/* Three.js canvas */}
+      <div style={{ position: "absolute", inset: 0, right: chatOpen ? chatWidth : 0 }}>
+        <Canvas
+          camera={{ position: [0, 0, 12], fov: 55, near: 0.1, far: 200 }}
+          dpr={[1, 2]}
+          style={{ background: "#f8fafc" }}
         >
-          <defs>
-            {circles.map((_, ci) => (
-              <filter key={`glow-${ci}`} id={`hub-glow-${ci}`} x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            ))}
-          </defs>
-
-          {circles.map((c, ci) => {
-            const color = PALETTE[ci % PALETTE.length];
-            return (
-              <g key={`edges-${c.topic.label}`}>
-                {c.papers.map((paper, i) => {
-                  const pos = c.cardPositions[i];
-                  if (!pos) return null;
-                  return (
-                    <line
-                      key={paper.arxiv_id}
-                      x1={c.cx}
-                      y1={c.cy}
-                      x2={c.cx + pos.x}
-                      y2={c.cy + pos.y}
-                      stroke={color.border}
-                      strokeOpacity={0.2}
-                      strokeWidth={1}
-                    />
-                  );
-                })}
-                <circle
-                  cx={c.cx}
-                  cy={c.cy}
-                  r={6}
-                  fill={color.border}
-                  filter={`url(#hub-glow-${ci})`}
-                />
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Topic labels + paper nodes */}
-        {circles.map((circle, ci) => {
-          const color = PALETTE[ci % PALETTE.length];
-
-          return (
-            <div key={circle.topic.label}>
-              {/* Hub label */}
-              <div
-                className="pointer-events-none absolute"
-                style={{
-                  left: circle.cx,
-                  top: circle.cy - 16,
-                  transform: "translate(-50%, -100%)",
-                  zIndex: 20,
-                }}
-              >
-                <span
-                  className="rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest"
-                  style={{
-                    color: color.text,
-                    background: "rgba(255,255,255,0.9)",
-                    border: `1px solid ${color.border}`,
-                  }}
-                >
-                  {circle.topic.label}
-                </span>
-              </div>
-
-              {/* Paper nodes */}
-              {circle.papers.map((paper, i) => {
-                const pos = circle.cardPositions[i];
-                if (!pos) return null;
-                const author = firstAuthor(paper.authors);
-                const isHovered = hoveredCard === paper.arxiv_id;
-                const isSelected = selectedPaper?.arxiv_id === paper.arxiv_id;
-
-                return (
-                  <div
-                    key={paper.arxiv_id}
-                    data-card
-                    className="absolute cursor-pointer transition-all duration-150"
-                    style={{
-                      left: circle.cx + pos.x - NODE_W / 2,
-                      top: circle.cy + pos.y - NODE_H / 2,
-                      width: NODE_W,
-                      height: NODE_H,
-                      zIndex: isHovered || isSelected ? 15 : 10,
-                      background: "white",
-                      border: `1px solid ${color.border}`,
-                      borderRadius: 6,
-                      opacity: isHovered || isSelected ? 1 : 0.75,
-                      boxShadow: isHovered || isSelected
-                        ? `0 0 10px ${color.glow}, 0 2px 6px rgba(0,0,0,0.08)`
-                        : "0 1px 3px rgba(0,0,0,0.06)",
-                      transform: isHovered ? "translateY(-1px)" : "translateY(0)",
-                    }}
-                    onMouseEnter={() => setHoveredCard(paper.arxiv_id)}
-                    onMouseLeave={() => setHoveredCard(null)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (selectedPaper?.arxiv_id === paper.arxiv_id) {
-                        setSelectedPaper(null);
-                      } else {
-                        const cardRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const containerRect = containerRef.current!.getBoundingClientRect();
-                        setSelectedPos({
-                          x: (cardRect.left - containerRect.left - pan.x) / zoom,
-                          y: (cardRect.bottom - containerRect.top - pan.y) / zoom + 8,
-                        });
-                        setSelectedPaper(paper);
-                        setSelectedTopicIdx(ci);
-                      }
-                    }}
-                  >
-                    <div className="flex flex-col justify-center px-2 py-1 h-full overflow-hidden">
-                      <p
-                        className="text-[10px] font-medium leading-tight text-gray-800 overflow-hidden"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {paper.title}
-                      </p>
-                      {author && (
-                        <p className="mt-0.5 text-[9px] truncate text-gray-400">
-                          {author}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-
-        {/* Detail popover */}
-        {selectedPaper && (
-          <div
-            data-detail
-            className="absolute z-20 w-64 rounded-xl bg-white p-4"
-            style={{
-              left: selectedPos.x,
-              top: selectedPos.y,
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-bold leading-snug text-gray-900">
-                {selectedPaper.title}
-              </h3>
-              <button
-                onClick={() => setSelectedPaper(null)}
-                className="shrink-0 text-gray-400 hover:text-gray-600"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            {selectedPaper.authors && (
-              <p className="mt-1 text-xs text-gray-400">{selectedPaper.authors}</p>
-            )}
-            <div className="mt-3">
-              <a
-                href={`/abs/${selectedPaper.arxiv_id}`}
-                className="inline-flex items-center gap-0.5 text-xs font-medium hover:underline"
-                style={{ color: PALETTE[selectedTopicIdx % PALETTE.length].text }}
-              >
-                View paper
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </a>
-            </div>
-          </div>
-        )}
+          <Suspense fallback={null}>
+            <Scene circles={circles} />
+          </Suspense>
+        </Canvas>
       </div>
 
+      {/* Chat panel */}
+      {chatOpen && (
+        <div
+          className="absolute right-0 top-0 h-full border-l border-gray-200 bg-white"
+          style={{ width: chatWidth, zIndex: 20 }}
+        >
+          {/* Drag handle */}
+          <div
+            className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-200 transition-colors"
+            style={{ zIndex: 21 }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              chatDragRef.current = true;
+              chatDragStartX.current = e.clientX;
+              chatDragStartW.current = chatWidth;
+            }}
+          />
+          <ChatPanel abstract={chatContext} contextId="map" />
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="absolute bottom-4 left-4 flex gap-1">
+      <div className="absolute bottom-4 left-4 flex items-center gap-2" style={{ zIndex: 10 }}>
         <button
-          onClick={() => setZoom(Math.min(3, zoom * 1.2))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-500 shadow-sm transition-colors hover:text-gray-900"
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-all ${
+            chatOpen
+              ? "border-blue-200 bg-blue-50 text-blue-700"
+              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+          }`}
         >
-          +
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Chat
         </button>
-        <button
-          onClick={() => setZoom(Math.max(0.05, zoom * 0.8))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-500 shadow-sm transition-colors hover:text-gray-900"
-        >
-          −
-        </button>
+        <span className="text-[10px] text-gray-400">Drag to rotate · Scroll to zoom · Right-drag to pan</span>
       </div>
     </div>
   );
