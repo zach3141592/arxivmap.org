@@ -74,7 +74,7 @@ export default async function Home() {
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:px-8">
         <div className="flex items-center gap-4">
-          <a href="/" className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <a href="/" className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight">
             <img src="/arxivmap.png" alt="" className="h-6 w-6" />
             Arxiv Map
           </a>
