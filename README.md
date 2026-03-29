@@ -9,7 +9,7 @@
 <p align="center">The opensource personal research paper platform</p>
 
 <p align="center">
-  <a href="#features">Features</a> · <a href="#setup">Setup</a> · <a href="#stack">Stack</a>
+  <a href="#features">Features</a> · <a href="#setup">Setup</a> · <a href="#stack">Stack</a> · <a href="#contributing">Contributing</a>
 </p>
 
 ---
@@ -65,6 +65,18 @@ npm run dev
 - **3D rendering** — [Three.js](https://threejs.org) + [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
 - **Styling** — [Tailwind CSS v4](https://tailwindcss.com)
 - **Deployment** — [Vercel](https://vercel.com)
+
+---
+
+## Contributing
+
+Contributions are welcome! To get started:
+
+1. Fork the repo and create a branch: `git checkout -b my-feature`
+2. Make your changes and ensure the app runs locally (`npm run dev`)
+3. Open a pull request with a clear description of what you changed and why
+
+For larger changes, open an issue first to discuss the approach. Please keep PRs focused — one feature or fix per PR.
 
 ---
 
