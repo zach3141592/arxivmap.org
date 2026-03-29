@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { fetchLatestArxivPapers } from "@/lib/arxiv";
 import { FeedClient, type FeedPaper } from "./feed-client";
@@ -64,18 +65,28 @@ export default async function FeedPage() {
 
   const savedIds = (savedPapers ?? []).map((p) => p.arxiv_id);
 
-  const [recommendedPapers, latestArxiv] = await Promise.all([
-    savedIds.length > 0 ? fetchRecommendations(savedIds) : Promise.resolve([]),
-    fetchLatestArxivPapers(),
-  ]);
+  const getCachedFeed = unstable_cache(
+    async () => {
+      const [recommendedPapers, latestArxiv] = await Promise.all([
+        savedIds.length > 0 ? fetchRecommendations(savedIds) : Promise.resolve([]),
+        fetchLatestArxivPapers(),
+      ]);
 
-  const latestPapers: FeedPaper[] = latestArxiv.map((p) => ({
-    arxiv_id: p.id,
-    title: p.title,
-    authors: p.authors,
-    abstract: p.abstract,
-    year: p.published ? new Date(p.published).getFullYear() : null,
-  }));
+      const latestPapers: FeedPaper[] = latestArxiv.map((p) => ({
+        arxiv_id: p.id,
+        title: p.title,
+        authors: p.authors,
+        abstract: p.abstract,
+        year: p.published ? new Date(p.published).getFullYear() : null,
+      }));
+
+      return { recommendedPapers, latestPapers };
+    },
+    [`feed-${user!.id}`],
+    { tags: [`feed-${user!.id}`] }
+  );
+
+  const { recommendedPapers, latestPapers } = await getCachedFeed();
 
   return (
     <div>

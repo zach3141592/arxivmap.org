@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { savePaperAction } from "./actions";
+import { savePaperAction, refreshFeedAction } from "./actions";
 
 export interface FeedPaper {
   arxiv_id: string;
@@ -126,9 +126,18 @@ export function FeedClient({
 }) {
   const [tab, setTab] = useState<Tab>("recommended");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    await refreshFeedAction();
+    router.refresh();
+    setIsRefreshing(false);
+  }
 
   const papers = tab === "latest" ? latestPapers : recommendedPapers;
 
@@ -173,7 +182,7 @@ export function FeedClient({
       pulling = false;
       const delta = e.changedTouches[0].clientY - startY;
       if (delta > 60) {
-        router.refresh();
+        handleRefresh();
       }
     }
 
@@ -190,21 +199,42 @@ export function FeedClient({
 
   return (
     <div ref={scrollRef}>
-      {/* Tab switcher */}
-      <div className="mb-4 flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
-        {(["latest", "recommended"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-lg px-4 py-1.5 text-xs font-medium capitalize transition-all ${
-              tab === t
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
+      {/* Tab switcher + refresh */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
+          {(["latest", "recommended"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded-lg px-4 py-1.5 text-xs font-medium capitalize transition-all ${
+                tab === t
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          aria-label="Refresh feed"
+          className="ml-auto flex items-center justify-center rounded-full border border-gray-200 p-1.5 text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600 disabled:opacity-50"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
           >
-            {t}
-          </button>
-        ))}
+            <path
+              fillRule="evenodd"
+              d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.389Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
       </div>
 
       {papers.length === 0 ? (

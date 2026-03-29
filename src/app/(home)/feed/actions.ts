@@ -1,7 +1,17 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { FeedPaper } from "./feed-client";
+
+export async function refreshFeedAction(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  revalidateTag(`feed-${user.id}`);
+}
 
 export async function savePaperAction(paper: FeedPaper): Promise<void> {
   const supabase = await createClient();
