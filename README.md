@@ -6,7 +6,7 @@
 
 ---
 
-<p align="center">A personal 3D map of your ArXiv research library, powered by AI.</p>
+<p align="center">The opensource personal research paper platform</p>
 
 <p align="center">
   <a href="#features">Features</a> · <a href="#setup">Setup</a> · <a href="#stack">Stack</a>
@@ -65,3 +65,9 @@ npm run dev
 - **3D rendering** — [Three.js](https://threejs.org) + [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
 - **Styling** — [Tailwind CSS v4](https://tailwindcss.com)
 - **Deployment** — [Vercel](https://vercel.com)
+
+---
+
+## License
+
+[MIT](LICENSE)
