@@ -105,7 +105,7 @@ export function SummarySection({
   );
 
   return (
-    <section className="mt-10">
+    <section className="mt-10 pb-24">
       {/* Tab row */}
       <div className="flex border-b border-gray-100">
         <button
