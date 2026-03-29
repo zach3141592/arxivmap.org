@@ -124,7 +124,7 @@ export function FeedClient({
   recommendedPapers: FeedPaper[];
   latestPapers: FeedPaper[];
 }) {
-  const [tab, setTab] = useState<Tab>("latest");
+  const [tab, setTab] = useState<Tab>("recommended");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);

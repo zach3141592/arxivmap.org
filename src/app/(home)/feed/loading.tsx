@@ -37,8 +37,8 @@ export default function FeedLoading() {
 
       {/* Tab switcher skeleton */}
       <div className="mb-4 flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
-        <div className="h-7 w-16 rounded-lg bg-white shadow-sm" />
-        <div className="h-7 w-24 rounded-lg" />
+        <div className="h-7 w-16 rounded-lg" />
+        <div className="h-7 w-24 rounded-lg bg-white shadow-sm" />
       </div>
 
       <div className="space-y-3">
