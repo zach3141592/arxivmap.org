@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { summarizePaperAction, type SummarizeResult } from "./actions";
 
@@ -23,10 +24,12 @@ function RenderedSummary({ text }: { text: string }) {
 
   if (!hasHeadings) {
     return (
-      <div className="space-y-4 text-[15px] leading-[1.75] text-gray-600">
-        {text.split("\n\n").map((paragraph, i) => (
-          <p key={i}>{renderInline(paragraph)}</p>
-        ))}
+      <div className="rounded-2xl border border-gray-100 bg-white px-6 py-5">
+        <div className="space-y-4 text-[15px] leading-[1.75] text-gray-600">
+          {text.split("\n\n").map((paragraph, i) => (
+            <p key={i}>{renderInline(paragraph)}</p>
+          ))}
+        </div>
       </div>
     );
   }
@@ -50,20 +53,15 @@ function RenderedSummary({ text }: { text: string }) {
   const rest = sections.filter((s) => s !== tldr);
 
   return (
-    <div className="space-y-5">
+    <div className="rounded-2xl border border-gray-100 bg-white px-6 py-5">
       {tldr && tldr.bullets.length > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4">
-          <p className="text-[15px] font-medium leading-relaxed text-gray-800">
-            {renderInline(tldr.bullets[0])}
-          </p>
-        </div>
+        <p className="text-[15px] font-medium leading-relaxed text-gray-700">
+          {renderInline(tldr.bullets[0])}
+        </p>
       )}
 
       {rest.map((section, i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-gray-100 bg-gray-50/60 px-5 py-4"
-        >
+        <div key={i} className="mt-5 border-t border-gray-100 pt-5">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
             {section.heading}
           </h3>
@@ -87,9 +85,11 @@ function RenderedSummary({ text }: { text: string }) {
 export function SummarySection({
   paperId,
   initialSummary,
+  abstract,
 }: {
   paperId: string;
   initialSummary: string | null;
+  abstract: string;
 }) {
   const initialState: SummarizeResult = initialSummary
     ? { status: "success", summary: initialSummary }
@@ -100,34 +100,63 @@ export function SummarySection({
     initialState
   );
 
-  if (state.status === "success") {
-    return (
-      <section className="mt-10">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-300">
-          AI Summary
-        </h2>
-        <div className="mt-4">
-          <RenderedSummary text={state.summary} />
-        </div>
-      </section>
-    );
-  }
+  const [activeTab, setActiveTab] = useState<"abstract" | "summary">(
+    initialSummary ? "summary" : "abstract"
+  );
 
   return (
     <section className="mt-10">
-      {state.status === "error" && (
-        <p className="mb-4 text-sm text-red-500">{state.message}</p>
-      )}
-      <form action={formAction}>
-        <input type="hidden" name="paperId" value={paperId} />
+      {/* Tab row */}
+      <div className="flex border-b border-gray-100">
         <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => setActiveTab("abstract")}
+          className={`px-1 pb-2.5 mr-6 text-sm transition-colors ${
+            activeTab === "abstract"
+              ? "border-b-2 border-gray-900 font-medium text-gray-900"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
         >
-          {isPending ? "Summarizing..." : "Summarize Paper"}
+          Abstract
         </button>
-      </form>
+        <button
+          onClick={() => setActiveTab("summary")}
+          className={`px-1 pb-2.5 text-sm transition-colors ${
+            activeTab === "summary"
+              ? "border-b-2 border-gray-900 font-medium text-gray-900"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          AI Summary
+        </button>
+      </div>
+
+      <div className="mt-5">
+        {activeTab === "abstract" && (
+          <p className="text-[15px] leading-[1.75] text-gray-600">{abstract}</p>
+        )}
+
+        {activeTab === "summary" && state.status === "success" && (
+          <RenderedSummary text={state.summary} />
+        )}
+
+        {activeTab === "summary" && state.status !== "success" && (
+          <>
+            {state.status === "error" && (
+              <p className="mb-4 text-sm text-red-500">{state.message}</p>
+            )}
+            <form action={formAction}>
+              <input type="hidden" name="paperId" value={paperId} />
+              <button
+                type="submit"
+                disabled={isPending}
+                className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isPending ? "Summarizing..." : "Summarize Paper"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </section>
   );
 }

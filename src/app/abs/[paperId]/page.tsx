@@ -109,12 +109,7 @@ export default async function PaperPage({
             arxiv.org/{paperId}
           </a>
 
-          <section className="mt-10">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-300">Abstract</h2>
-            <p className="mt-4 text-[15px] leading-[1.75] text-gray-600">{abstract}</p>
-          </section>
-
-          <SummarySection paperId={paperId} initialSummary={initialSummary} />
+          <SummarySection paperId={paperId} initialSummary={initialSummary} abstract={abstract} />
         </article>
       </ScrollContainer>
 
