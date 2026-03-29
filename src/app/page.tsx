@@ -77,6 +77,7 @@ export default async function Home() {
           <img src="/arxivmap.png" alt="" className="h-6 w-6" />
           Arxiv Map
         </a>
+        <PaperInput compact />
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-gray-400 sm:inline">{user.email}</span>
           <form action="/auth/signout" method="POST">
@@ -90,12 +91,7 @@ export default async function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
-        <section className="flex flex-col items-center gap-5">
-          <h2 className="text-sm font-medium text-gray-400">Look up a paper</h2>
-          <PaperInput />
-        </section>
-
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         <HomeTabs
           papers={recentPapers || []}
           trees={trees}
