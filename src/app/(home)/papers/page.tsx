@@ -1,6 +1,5 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { PaperInput } from "../../paper-input";
-import { PapersList } from "./papers-list";
+import { PapersSection } from "./papers-section";
 
 export default async function PapersPage() {
   const supabase = await createClient();
@@ -14,10 +13,5 @@ export default async function PapersPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  return (
-    <>
-      <PaperInput />
-      <PapersList papers={papers || []} />
-    </>
-  );
+  return <PapersSection papers={papers || []} />;
 }
