@@ -22,9 +22,15 @@ export default async function Home() {
           Arxiv Map
         </h1>
         <p className="mt-3 text-sm tracking-wide text-gray-400">
-          AI-powered paper summaries
+          Your personal research library, powered by AI.
         </p>
         <LandingInput />
+        <ul className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-400">
+          <li>Save papers</li>
+          <li>Get AI summaries</li>
+          <li>Map your research</li>
+          <li>Scroll through new papers</li>
+        </ul>
       </main>
       <footer className="mt-20">
         <a
