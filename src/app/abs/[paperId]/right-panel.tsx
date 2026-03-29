@@ -3,7 +3,6 @@
 import { ChatPanel } from "./chat-panel";
 
 export function RightPanel({
-  abstract,
   paperId,
 }: {
   paperId: string;
@@ -13,7 +12,7 @@ export function RightPanel({
 }) {
   return (
     <div className="flex h-full flex-col">
-      <ChatPanel abstract={abstract} contextId={`paper:${paperId}`} />
+      <ChatPanel contextId={`paper:${paperId}`} />
     </div>
   );
 }

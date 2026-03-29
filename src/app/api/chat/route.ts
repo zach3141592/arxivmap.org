@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
+import type { StoredMapData } from "@/lib/paper-map-ai";
 
 const anthropic = new Anthropic();
 
@@ -40,8 +41,54 @@ export async function POST(request: Request) {
     return new Response("Too many requests", { status: 429 });
   }
 
-  const { messages, abstract, contextId } = await request.json();
+  const { messages, contextId } = await request.json();
   const isMapContext = contextId === "map";
+
+  // Load abstract server-side — never trust client-supplied content in the system prompt
+  const serviceClient = createServiceClient();
+  let abstract: string;
+
+  if (isMapContext) {
+    const { data: mapRow } = await serviceClient
+      .from("paper_maps")
+      .select("map_data")
+      .eq("user_id", authData.user.id)
+      .single();
+
+    if (!mapRow?.map_data) {
+      abstract = "No map data available.";
+    } else {
+      const mapData = mapRow.map_data as StoredMapData;
+      const allPaperIds = mapData.topics.flatMap((t) => t.paper_ids);
+      const { data: papers } = await serviceClient
+        .from("paper_summaries")
+        .select("arxiv_id, title")
+        .eq("user_id", authData.user.id)
+        .in("arxiv_id", allPaperIds);
+
+      const paperTitles = new Map((papers ?? []).map((p) => [p.arxiv_id, p.title]));
+      const total = allPaperIds.length;
+      let ctx = `Paper map with ${total} papers across ${mapData.topics.length} topics:\n`;
+      for (const topic of mapData.topics) {
+        ctx += `\nTopic: "${topic.label}"\n`;
+        for (const id of topic.paper_ids) {
+          ctx += `- "${paperTitles.get(id) ?? id}" (${id})\n`;
+        }
+      }
+      abstract = ctx;
+    }
+  } else if (typeof contextId === "string" && contextId.startsWith("paper:")) {
+    const paperId = contextId.slice("paper:".length);
+    const { data: paper } = await serviceClient
+      .from("paper_summaries")
+      .select("abstract")
+      .eq("arxiv_id", paperId)
+      .eq("user_id", authData.user.id)
+      .single();
+    abstract = paper?.abstract ?? "Abstract not available.";
+  } else {
+    return new Response("Bad request", { status: 400 });
+  }
 
   const systemPrompt = isMapContext
     ? `You are a helpful research assistant for a 3D paper map visualization.\n\nThe map contains the following papers:\n\n${abstract}\n\nAnswer questions about these papers. When the user asks to show, find, highlight, or navigate to papers on a specific topic, call the navigate_map tool with the matching arxiv IDs from the list above. When the user asks to clear, reset, or show all papers, call navigate_map with an empty array.\n\nFormat responses with markdown: **bold** for key terms, bullet points for lists.`

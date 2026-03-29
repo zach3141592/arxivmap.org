@@ -23,11 +23,9 @@ function stripSentinel(text: string): { clean: string; navigate: NavigateData | 
 }
 
 export function ChatPanel({
-  abstract,
   contextId,
   onNavigate,
 }: {
-  abstract: string;
   contextId?: string;
   onNavigate?: (data: NavigateData) => void;
 }) {
@@ -90,7 +88,7 @@ export function ChatPanel({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages, abstract, contextId }),
+        body: JSON.stringify({ messages: updatedMessages, contextId }),
       });
 
       if (!res.ok) throw new Error("Chat request failed");

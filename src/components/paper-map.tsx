@@ -523,15 +523,6 @@ export function PaperMap({
     ]);
   }, [cachedMap, papers]);
 
-  const chatContext = useMemo(() => {
-    const total = circles.reduce((s, c) => s + c.papers.length, 0);
-    let ctx = `Paper map with ${total} papers across ${circles.length} topics:\n`;
-    for (const c of circles) {
-      ctx += `\nTopic: "${c.topic.label}"\n`;
-      for (const p of c.papers) ctx += `- "${p.title}" (${p.arxiv_id})\n`;
-    }
-    return ctx;
-  }, [circles]);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -597,7 +588,6 @@ export function PaperMap({
             }}
           />
           <ChatPanel
-            abstract={chatContext}
             contextId="map"
             onNavigate={(data) => setHighlightedIds(new Set(data.paper_ids))}
           />
