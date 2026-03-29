@@ -13,41 +13,69 @@ export interface ArxivSearchResult {
   published: string;
 }
 
+async function fetchFromArxiv(paperId: string): Promise<ArxivPaper | null> {
+  try {
+    const res = await fetch(
+      `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(paperId)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+
+    const xml = await res.text();
+    const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
+    if (!entryMatch) return null;
+    const entry = entryMatch[1];
+    if (!entry.includes("arxiv.org/abs/")) return null;
+
+    const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/);
+    const abstractMatch = entry.match(/<summary>([\s\S]*?)<\/summary>/);
+    if (!titleMatch || !abstractMatch) return null;
+
+    const authorMatches = [...entry.matchAll(/<author>\s*<name>([^<]+)<\/name>/g)];
+    const authors = authorMatches.map((m) => m[1].trim()).join(", ");
+    const publishedMatch = entry.match(/<published>([^<]+)<\/published>/);
+    const published = publishedMatch ? publishedMatch[1].trim() : undefined;
+
+    return {
+      title: titleMatch[1].replace(/\s+/g, " ").trim(),
+      authors,
+      abstract: abstractMatch[1].replace(/\s+/g, " ").trim(),
+      published,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFromSemanticScholar(paperId: string): Promise<ArxivPaper | null> {
+  try {
+    const res = await fetch(
+      `https://api.semanticscholar.org/graph/v1/paper/arXiv:${paperId}?fields=title,authors,abstract,year,publicationDate`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.title) return null;
+
+    const authors = (data.authors ?? []).map((a: { name: string }) => a.name).join(", ");
+    return {
+      title: data.title,
+      authors,
+      abstract: data.abstract ?? "",
+      published: data.publicationDate ?? (data.year ? String(data.year) : undefined),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchArxivPaper(
   paperId: string
 ): Promise<ArxivPaper | null> {
-  const res = await fetch(
-    `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(paperId)}`
-  );
-  if (!res.ok) return null;
-
-  const xml = await res.text();
-
-  // Check if an entry exists
-  const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
-  if (!entryMatch) return null;
-  const entry = entryMatch[1];
-
-  // arxiv returns an entry even for invalid IDs, but with a specific id format
-  // Check for a real paper by looking for a doi or arxiv id link
-  if (!entry.includes("arxiv.org/abs/")) return null;
-
-  const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/);
-  const abstractMatch = entry.match(/<summary>([\s\S]*?)<\/summary>/);
-
-  if (!titleMatch || !abstractMatch) return null;
-
-  // Extract all author names
-  const authorMatches = [...entry.matchAll(/<author>\s*<name>([^<]+)<\/name>/g)];
-  const authors = authorMatches.map((m) => m[1].trim()).join(", ");
-
-  const publishedMatch = entry.match(/<published>([^<]+)<\/published>/);
-  const published = publishedMatch ? publishedMatch[1].trim() : undefined;
-
-  const title = titleMatch[1].replace(/\s+/g, " ").trim();
-  const abstract = abstractMatch[1].replace(/\s+/g, " ").trim();
-
-  return { title, authors, abstract, published };
+  const arxivResult = await fetchFromArxiv(paperId);
+  if (arxivResult) return arxivResult;
+  // Fallback: Semantic Scholar works reliably from cloud environments
+  return fetchFromSemanticScholar(paperId);
 }
 
 function parseArxivEntry(entry: string): ArxivSearchResult | null {
