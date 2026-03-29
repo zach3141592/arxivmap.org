@@ -11,20 +11,12 @@ interface Paper {
   created_at: string | null;
 }
 
-interface TreeData {
-  root: string;
-  nodes: { id: string; title: string; authors?: string; year?: number; relationship?: string; relevance?: string }[];
-  edges: { source: string; target: string; label?: string }[];
-}
-
 export function MapView({
   papers,
-  treeDataList,
   cachedMap,
   mapIsStale,
 }: {
   papers: Paper[];
-  treeDataList: TreeData[];
   cachedMap: StoredMapData | null;
   mapIsStale: boolean;
 }) {

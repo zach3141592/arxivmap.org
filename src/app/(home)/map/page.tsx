@@ -7,16 +7,10 @@ export default async function MapPage() {
 
   const serviceClient = createServiceClient();
 
-  const [{ data: papers }, { data: recentTrees }, { data: mapRow }] = await Promise.all([
+  const [{ data: papers }, { data: mapRow }] = await Promise.all([
     serviceClient
       .from("paper_summaries")
       .select("arxiv_id, title, authors, created_at")
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    serviceClient
-      .from("research_trees")
-      .select("arxiv_id, root_title, node_count, tree_data, created_at")
       .eq("user_id", user!.id)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -27,10 +21,6 @@ export default async function MapPage() {
       .single(),
   ]);
 
-  const treeDataList = (recentTrees || [])
-    .filter((t) => t.tree_data)
-    .map((t) => t.tree_data);
-
   const paperCount = papers?.length ?? 0;
   const mapIsStale = mapRow
     ? mapRow.paper_count !== paperCount
@@ -39,7 +29,6 @@ export default async function MapPage() {
   return (
     <MapView
       papers={papers || []}
-      treeDataList={treeDataList}
       cachedMap={mapRow?.map_data ?? null}
       mapIsStale={mapIsStale}
     />

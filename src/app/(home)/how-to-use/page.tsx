@@ -50,14 +50,6 @@ export default function HowToUsePage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-base font-semibold text-gray-800">Research Trees</h2>
-        <p className="mt-2 text-sm text-gray-500">
-          From any paper page, generate a research tree to explore related and cited works.
-          Trees are saved here for future reference.
-        </p>
-      </section>
-
-      <section className="mt-6">
         <h2 className="text-base font-semibold text-gray-800">My Map</h2>
         <p className="mt-2 text-sm text-gray-500">
           An AI-generated visual map of all your saved papers, clustered by topic.
