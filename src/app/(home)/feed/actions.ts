@@ -10,7 +10,7 @@ export async function refreshFeedAction(): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return;
-  revalidateTag(`feed-${user.id}`);
+  revalidateTag(`feed-${user.id}`, "default");
 }
 
 export async function savePaperAction(paper: FeedPaper): Promise<void> {
