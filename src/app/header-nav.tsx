@@ -1,26 +1,25 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { usePathname } from "next/navigation";
 
 const tabs = [
-  { id: "papers", label: "Papers", href: "?tab=papers" },
-  { id: "trees", label: "Research Trees", href: "?tab=trees" },
-  { id: "map", label: "My Map", href: "?tab=map" },
+  { href: "/papers", label: "Papers" },
+  { href: "/trees", label: "Research Trees" },
+  { href: "/map", label: "My Map" },
+  { href: "/how-to-use", label: "How to use" },
 ];
 
-function Nav() {
-  const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") || "papers";
+export function HeaderNav() {
+  const pathname = usePathname();
 
   return (
     <nav className="flex items-center gap-1">
       {tabs.map((t) => (
         <a
-          key={t.id}
+          key={t.href}
           href={t.href}
           className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-            activeTab === t.id
+            pathname === t.href
               ? "bg-gray-100 font-medium text-gray-900"
               : "text-gray-400 hover:text-gray-700"
           }`}
@@ -28,20 +27,6 @@ function Nav() {
           {t.label}
         </a>
       ))}
-      <a
-        href="/how-to-use"
-        className="rounded-lg px-3 py-1.5 text-sm text-gray-400 transition-colors hover:text-gray-700"
-      >
-        How to use
-      </a>
     </nav>
-  );
-}
-
-export function HeaderNav() {
-  return (
-    <Suspense>
-      <Nav />
-    </Suspense>
   );
 }
