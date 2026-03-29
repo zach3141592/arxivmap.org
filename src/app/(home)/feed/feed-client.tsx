@@ -42,13 +42,19 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function truncateAuthors(authors: string): string {
+  const parts = authors.split(", ");
+  if (parts.length <= 2) return authors;
+  return `${parts[0]}, ${parts[1]} et al.`;
+}
+
 function FeedCard({ paper }: { paper: FeedPaper }) {
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const abstract =
-    paper.abstract.length > 320
-      ? paper.abstract.slice(0, 320).trimEnd() + "…"
+    paper.abstract.length > 220
+      ? paper.abstract.slice(0, 220).trimEnd() + "…"
       : paper.abstract;
 
   function handleSave(e: React.MouseEvent) {
@@ -60,7 +66,7 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
   }
 
   return (
-    <article className="rounded-2xl border border-gray-100 bg-white px-6 py-5 transition-shadow hover:shadow-sm">
+    <article className="rounded-2xl border border-gray-200/60 bg-white px-6 py-5 shadow-sm transition-shadow hover:shadow-md">
       <a href={`/abs/${paper.arxiv_id}`} className="block group">
         <h2 className="text-[15px] font-semibold leading-snug text-gray-900 group-hover:text-gray-500 transition-colors">
           {paper.title}
@@ -69,7 +75,7 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
 
       {paper.authors && (
         <p className="mt-2 text-xs text-gray-400 leading-relaxed">
-          {paper.authors}
+          {truncateAuthors(paper.authors)}
         </p>
       )}
 
@@ -77,19 +83,10 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
 
       <div className="mt-4 flex items-center gap-3">
         {paper.year && (
-          <span className="rounded-full border border-gray-100 px-2.5 py-0.5 text-[11px] text-gray-400">
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] text-gray-400">
             {paper.year}
           </span>
         )}
-        <a
-          href={`https://arxiv.org/abs/${paper.arxiv_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[11px] text-gray-300 transition-colors hover:text-gray-500"
-          onClick={(e) => e.stopPropagation()}
-        >
-          arxiv.org/{paper.arxiv_id}
-        </a>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleSave}
@@ -201,12 +198,12 @@ export function FeedClient({
     <div ref={scrollRef}>
       {/* Tab switcher + refresh */}
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
+        <div className="flex gap-1 rounded-xl bg-gray-100 p-1 flex-1">
           {(["latest", "recommended"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-lg px-4 py-1.5 text-xs font-medium capitalize transition-all ${
+              className={`flex-1 rounded-lg px-4 py-1.5 text-xs font-medium capitalize transition-all ${
                 tab === t
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
@@ -254,9 +251,16 @@ export function FeedClient({
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />
             </div>
           ) : (
-            <p className="py-8 text-center text-xs text-gray-300">
-              You&apos;re all caught up
-            </p>
+            <div className="py-8 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3 text-gray-200">
+                <div className="h-px w-16 bg-gray-200" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                  <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                </svg>
+                <div className="h-px w-16 bg-gray-200" />
+              </div>
+              <p className="text-xs text-gray-300">You&apos;re all caught up</p>
+            </div>
           )}
         </div>
       )}
