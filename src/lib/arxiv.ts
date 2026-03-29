@@ -109,6 +109,32 @@ function parseArxivEntry(entry: string): ArxivSearchResult | null {
   };
 }
 
+export async function fetchLatestArxivPapers(
+  categories = ["cs.AI", "cs.LG", "cs.CV", "stat.ML"],
+  maxResults = 100
+): Promise<ArxivSearchResult[]> {
+  const catQuery = categories.map((c) => `cat:${c}`).join("+OR+");
+  try {
+    const res = await fetch(
+      `https://export.arxiv.org/api/query?search_query=${catQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`,
+      { signal: AbortSignal.timeout(12000), cache: "no-store" }
+    );
+    if (!res.ok) return [];
+
+    const xml = await res.text();
+    const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
+
+    const results: ArxivSearchResult[] = [];
+    for (const match of entries) {
+      const parsed = parseArxivEntry(match[1]);
+      if (parsed) results.push(parsed);
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 export async function searchArxivPapers(
   query: string,
   maxResults: number = 10

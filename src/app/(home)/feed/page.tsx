@@ -1,4 +1,5 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { fetchLatestArxivPapers } from "@/lib/arxiv";
 import { FeedClient, type FeedPaper } from "./feed-client";
 
 async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
@@ -63,36 +64,28 @@ export default async function FeedPage() {
 
   const savedIds = (savedPapers ?? []).map((p) => p.arxiv_id);
 
-  if (savedIds.length === 0) {
-    return (
-      <div>
-        <h1 className="text-lg font-semibold text-gray-900">Feed</h1>
-        <p className="mt-12 text-center text-sm text-gray-400">
-          Save some papers first and your personalized feed will appear here.
-        </p>
-        <div className="mt-4 text-center">
-          <a
-            href="/papers"
-            className="text-sm text-gray-500 underline decoration-gray-300 underline-offset-2 hover:text-gray-800"
-          >
-            Go to Papers →
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const [recommendedPapers, latestArxiv] = await Promise.all([
+    savedIds.length > 0 ? fetchRecommendations(savedIds) : Promise.resolve([]),
+    fetchLatestArxivPapers(),
+  ]);
 
-  const papers = await fetchRecommendations(savedIds);
+  const latestPapers: FeedPaper[] = latestArxiv.map((p) => ({
+    arxiv_id: p.id,
+    title: p.title,
+    authors: p.authors,
+    abstract: p.abstract,
+    year: p.published ? new Date(p.published).getFullYear() : null,
+  }));
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-gray-900">Feed</h1>
-        <p className="mt-1 text-sm text-gray-400">
-          Recommended based on your library.
-        </p>
       </div>
-      <FeedClient papers={papers} />
+      <FeedClient
+        recommendedPapers={recommendedPapers}
+        latestPapers={latestPapers}
+      />
     </div>
   );
 }
