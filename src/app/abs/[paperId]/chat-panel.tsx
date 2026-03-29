@@ -5,7 +5,32 @@ import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-export function ChatPanel({ abstract, contextId }: { abstract: string; contextId?: string }) {
+type NavigateData = { paper_ids: string[]; topic_label?: string };
+
+const SENTINEL_RE = /\n?\[__NAVIGATE__\]([\s\S]*?)\[\/__NAVIGATE__\]/;
+
+function stripSentinel(text: string): { clean: string; navigate: NavigateData | null } {
+  const match = text.match(SENTINEL_RE);
+  if (!match) return { clean: text, navigate: null };
+  try {
+    return {
+      clean: text.replace(SENTINEL_RE, "").trimEnd(),
+      navigate: JSON.parse(match[1]) as NavigateData,
+    };
+  } catch {
+    return { clean: text.replace(SENTINEL_RE, "").trimEnd(), navigate: null };
+  }
+}
+
+export function ChatPanel({
+  abstract,
+  contextId,
+  onNavigate,
+}: {
+  abstract: string;
+  contextId?: string;
+  onNavigate?: (data: NavigateData) => void;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -65,7 +90,7 @@ export function ChatPanel({ abstract, contextId }: { abstract: string; contextId
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages, abstract }),
+        body: JSON.stringify({ messages: updatedMessages, abstract, contextId }),
       });
 
       if (!res.ok) throw new Error("Chat request failed");
@@ -80,14 +105,18 @@ export function ChatPanel({ abstract, contextId }: { abstract: string; contextId
         const { done, value } = await reader.read();
         if (done) break;
         assistantContent += decoder.decode(value, { stream: true });
-        const snapshot = assistantContent;
+        const { clean } = stripSentinel(assistantContent);
         setMessages((prev) => [
           ...prev.slice(0, -1),
-          { role: "assistant", content: snapshot },
+          { role: "assistant", content: clean },
         ]);
       }
 
-      const finalMessages = [...updatedMessages, { role: "assistant" as const, content: assistantContent }];
+      const { clean: finalContent, navigate: navigateData } = stripSentinel(assistantContent);
+      if (navigateData && onNavigate) {
+        onNavigate(navigateData);
+      }
+      const finalMessages = [...updatedMessages, { role: "assistant" as const, content: finalContent }];
       saveMessages(finalMessages);
     } catch (err) {
       console.error(err);
@@ -141,7 +170,9 @@ export function ChatPanel({ abstract, contextId }: { abstract: string; contextId
               Ask a question
             </p>
             <p className="mt-1 max-w-[220px] text-xs leading-relaxed text-gray-300">
-              Ask anything about this paper&apos;s methods, results, or implications.
+              {contextId === "map"
+                ? "Ask about papers or say \"show me papers on RL\" to navigate the map."
+                : "Ask anything about this paper's methods, results, or implications."}
             </p>
           </div>
         ) : null}
@@ -203,7 +234,7 @@ export function ChatPanel({ abstract, contextId }: { abstract: string; contextId
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about this paper..."
+            placeholder={contextId === "map" ? "Ask about papers or navigate the map..." : "Ask about this paper..."}
             disabled={isStreaming}
             rows={1}
             className="flex-1 resize-none overflow-hidden bg-transparent py-2.5 pl-4 pr-2 text-sm outline-none placeholder:text-gray-400 disabled:opacity-50"

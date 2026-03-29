@@ -51,12 +51,16 @@ function PaperNode({
   color,
   topicIdx,
   onSelect,
+  isHighlighted,
+  isAnyHighlighted,
 }: {
   paper: Paper;
   position: THREE.Vector3;
   color: string;
   topicIdx: number;
   onSelect: (info: SelectedInfo) => void;
+  isHighlighted: boolean;
+  isAnyHighlighted: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -64,8 +68,22 @@ function PaperNode({
   useFrame(() => {
     if (!meshRef.current) return;
     const mat = meshRef.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, hovered ? 1.0 : 0.2, 0.12);
-    const s = THREE.MathUtils.lerp(meshRef.current.scale.x, hovered ? 1.3 : 1.0, 0.12);
+
+    const targetEmissive = isHighlighted
+      ? 0.9
+      : hovered
+      ? 1.0
+      : isAnyHighlighted
+      ? 0.04
+      : 0.2;
+    mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, targetEmissive, 0.1);
+
+    const targetOpacity = isAnyHighlighted && !isHighlighted ? 0.3 : 1.0;
+    mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, 0.1);
+
+    const pulse = isHighlighted ? 1.25 + Math.sin(Date.now() * 0.004) * 0.1 : 0;
+    const targetScale = isHighlighted ? pulse : hovered ? 1.3 : 1.0;
+    const s = THREE.MathUtils.lerp(meshRef.current.scale.x, targetScale, isHighlighted ? 0.3 : 0.12);
     meshRef.current.scale.setScalar(s);
   });
 
@@ -86,6 +104,8 @@ function PaperNode({
           emissiveIntensity={0.2}
           roughness={0.25}
           metalness={0.1}
+          transparent
+          opacity={1}
         />
       </mesh>
       <Billboard>
@@ -176,13 +196,16 @@ function TopicCluster({
   ci,
   zOffset,
   onSelect,
+  highlightedIds,
 }: {
   circle: ReturnType<typeof packCircles>[0];
   ci: number;
   zOffset: number;
   onSelect: (info: SelectedInfo) => void;
+  highlightedIds: Set<string>;
 }) {
   const color = PALETTE[ci % PALETTE.length].hex;
+  const isAnyHighlighted = highlightedIds.size > 0;
   const hubPos = useMemo(
     () => new THREE.Vector3(circle.cx * SCALE, -circle.cy * SCALE, zOffset),
     [circle.cx, circle.cy, zOffset]
@@ -225,6 +248,8 @@ function TopicCluster({
               color={color}
               topicIdx={ci}
               onSelect={onSelect}
+              isHighlighted={highlightedIds.has(paper.arxiv_id)}
+              isAnyHighlighted={isAnyHighlighted}
             />
           </group>
         );
@@ -348,8 +373,16 @@ function DetailPopover({
 
 /* ── Scene ── */
 
-function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
+function Scene({
+  circles,
+  highlightedIds,
+}: {
+  circles: ReturnType<typeof packCircles>;
+  highlightedIds: Set<string>;
+}) {
   const [selected, setSelected] = useState<SelectedInfo | null>(null);
+  const controlsRef = useRef<any>(null);
+  const cameraTargetRef = useRef<THREE.Vector3 | null>(null);
 
   const zOffsets = useMemo(
     () =>
@@ -359,6 +392,50 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
       }),
     [circles]
   );
+
+  // Compute centroid of highlighted papers
+  const centroid = useMemo(() => {
+    if (!highlightedIds.size) return null;
+    const positions: THREE.Vector3[] = [];
+    circles.forEach((circle, ci) => {
+      const zOffset = zOffsets[ci];
+      circle.papers.forEach((paper, i) => {
+        if (!highlightedIds.has(paper.arxiv_id)) return;
+        const pos = circle.cardPositions[i];
+        if (!pos) return;
+        const angleNoise = (i * 137.508 * Math.PI) / 180;
+        const zNoise = Math.sin(angleNoise + ci) * 1.8;
+        positions.push(
+          new THREE.Vector3(
+            (circle.cx + pos.x) * SCALE,
+            -(circle.cy + pos.y) * SCALE,
+            zOffset + zNoise
+          )
+        );
+      });
+    });
+    if (!positions.length) return null;
+    const c = new THREE.Vector3();
+    for (const p of positions) c.add(p);
+    c.divideScalar(positions.length);
+    return c;
+  }, [circles, zOffsets, highlightedIds]);
+
+  // Trigger camera fly when centroid changes
+  useEffect(() => {
+    if (centroid) cameraTargetRef.current = centroid.clone();
+  }, [centroid]);
+
+  // Smooth camera pan toward target
+  useFrame(() => {
+    if (!controlsRef.current || !cameraTargetRef.current) return;
+    const controls = controlsRef.current;
+    controls.target.lerp(cameraTargetRef.current, 0.05);
+    controls.update();
+    if (controls.target.distanceTo(cameraTargetRef.current) < 0.05) {
+      cameraTargetRef.current = null;
+    }
+  });
 
   return (
     <>
@@ -376,6 +453,7 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
           ci={ci}
           zOffset={zOffsets[ci]}
           onSelect={(info) => setSelected(info)}
+          highlightedIds={highlightedIds}
         />
       ))}
 
@@ -384,6 +462,7 @@ function Scene({ circles }: { circles: ReturnType<typeof packCircles> }) {
       )}
 
       <OrbitControls
+        ref={controlsRef}
         enablePan
         enableZoom
         enableRotate
@@ -408,6 +487,7 @@ export function PaperMap({
 }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatWidth, setChatWidth] = useState(380);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
   const chatDragRef = useRef(false);
   const chatDragStartX = useRef(0);
   const chatDragStartW = useRef(380);
@@ -490,7 +570,7 @@ export function PaperMap({
           style={{ background: "transparent" }}
         >
           <Suspense fallback={null}>
-            <Scene circles={circles} />
+            <Scene circles={circles} highlightedIds={highlightedIds} />
           </Suspense>
         </Canvas>
       </div>
@@ -516,7 +596,11 @@ export function PaperMap({
               chatDragStartW.current = chatWidth;
             }}
           />
-          <ChatPanel abstract={chatContext} contextId="map" />
+          <ChatPanel
+            abstract={chatContext}
+            contextId="map"
+            onNavigate={(data) => setHighlightedIds(new Set(data.paper_ids))}
+          />
         </div>
       )}
 
@@ -539,6 +623,17 @@ export function PaperMap({
           </svg>
           Chat
         </button>
+        {highlightedIds.size > 0 && (
+          <button
+            onClick={() => setHighlightedIds(new Set())}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:border-gray-300 hover:text-gray-600"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+            Clear
+          </button>
+        )}
         <span className="text-[10px] text-gray-400">
           Drag to rotate · Scroll to zoom · Right-drag to pan
         </span>
