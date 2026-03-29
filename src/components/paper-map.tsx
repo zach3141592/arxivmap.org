@@ -304,8 +304,7 @@ export function PaperMap({
                   style={{
                     color: color.text,
                     background: "rgba(13,13,14,0.75)",
-                    border: `1px solid ${color.border}`,
-                    borderOpacity: 0.4,
+                    border: `1px solid ${color.border}40`,
                   }}
                 >
                   {circle.topic.label}
