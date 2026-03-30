@@ -15,6 +15,45 @@ export interface FeedPaper {
 
 const PAGE_SIZE = 10;
 
+const TAG_RULES: { tag: string; patterns: RegExp[] }[] = [
+  { tag: "RL",          patterns: [/\breinforcement learning\b/i, /\brlhf\b/i, /\breward model/i, /\bpolicy gradient\b/i, /\bppo\b/i, /\bq-learning\b/i] },
+  { tag: "LLM",         patterns: [/\blarge language model/i, /\bllm\b/i, /\bgpt\b/i, /\bchatgpt\b/i, /\bllama\b/i, /\bgemini\b/i, /\bclaude\b/i] },
+  { tag: "Transformers",patterns: [/\btransformer\b/i, /\battention mechanism\b/i, /\bself-attention\b/i, /\bbert\b/i] },
+  { tag: "Diffusion",   patterns: [/\bdiffusion model/i, /\bscore matching\b/i, /\bdenoising\b/i, /\bddpm\b/i] },
+  { tag: "Vision",      patterns: [/\bimage\b/i, /\bvision\b/i, /\bobject detection\b/i, /\bsegmentation\b/i, /\bcnn\b/i, /\bvisual\b/i, /\bpixel\b/i] },
+  { tag: "NLP",         patterns: [/\bnatural language\b/i, /\btext classification\b/i, /\bsentiment\b/i, /\bnamed entity\b/i, /\bmachine translation\b/i] },
+  { tag: "Multimodal",  patterns: [/\bmultimodal\b/i, /\bvision-language\b/i, /\bvlm\b/i, /\bimage-text\b/i] },
+  { tag: "Reasoning",   patterns: [/\breasoning\b/i, /\bchain.of.thought\b/i, /\blogical\b/i, /\bmath\b/i, /\bproof\b/i] },
+  { tag: "Agents",      patterns: [/\bagentic\b/i, /\btool.us(e|ing)\b/i, /\bmulti-agent\b/i, /\bautonomous agent\b/i] },
+  { tag: "Robotics",    patterns: [/\brobot\b/i, /\bmanipulation\b/i, /\blocomotion\b/i, /\bembodied\b/i] },
+  { tag: "Graph",       patterns: [/\bgraph neural\b/i, /\bgnn\b/i, /\bnode classification\b/i, /\bknowledge graph\b/i] },
+  { tag: "3D",          patterns: [/\b3d\b/i, /\bpoint cloud\b/i, /\bnerf\b/i, /\bmesh\b/i, /\bdepth estimation\b/i] },
+  { tag: "Optimization",patterns: [/\boptimiz/i, /\bconvex\b/i, /\bgradient descent\b/i, /\bstochastic\b/i] },
+  { tag: "Efficiency",  patterns: [/\befficient\b/i, /\bpruning\b/i, /\bquantiz/i, /\bdistillation\b/i, /\bcompression\b/i, /\blora\b/i] },
+  { tag: "RAG",         patterns: [/\bretrieval.augmented\b/i, /\brag\b/i, /\bdense retrieval\b/i] },
+  { tag: "Security",    patterns: [/\badversarial\b/i, /\bjailbreak\b/i, /\brobustness\b/i, /\battack\b/i, /\bdefense\b/i] },
+  { tag: "Medical",     patterns: [/\bmedical\b/i, /\bclinical\b/i, /\bbiomedical\b/i, /\bdrug\b/i, /\bhealth\b/i] },
+  { tag: "Audio",       patterns: [/\bspeech\b/i, /\baudio\b/i, /\bsound\b/i, /\basr\b/i, /\btts\b/i] },
+  { tag: "Benchmark",   patterns: [/\bbenchmark\b/i, /\bevaluation\b/i, /\bdataset\b/i] },
+  { tag: "Fine-tuning", patterns: [/\bfine.tun/i, /\bpeft\b/i, /\binstruction.tun/i, /\badapter\b/i] },
+];
+
+function getTags(title: string, abstract: string): string[] {
+  const titleText = title.toLowerCase();
+  const fullText = (title + " " + abstract).toLowerCase();
+  const tags: string[] = [];
+
+  for (const { tag, patterns } of TAG_RULES) {
+    if (tags.length >= 3) break;
+    const inTitle = patterns.some((p) => p.test(titleText));
+    const inAbstract = !inTitle && patterns.some((p) => p.test(fullText));
+    if (inTitle || inAbstract) tags.push(tag);
+  }
+
+  // Bump title matches to front
+  return tags;
+}
+
 function BookmarkIcon({ filled }: { filled: boolean }) {
   return filled ? (
     <svg
@@ -53,6 +92,7 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
   const [saved, setSaved] = useState(false);
   const [starred, setStarred] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const tags = getTags(paper.title, paper.abstract);
 
   const abstract =
     paper.abstract.length > 220
@@ -98,6 +138,11 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
             {paper.month ? `${paper.month} ${paper.year}` : paper.year}
           </span>
         )}
+        {tags.map((tag) => (
+          <span key={tag} className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-400">
+            {tag}
+          </span>
+        ))}
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleStar}
