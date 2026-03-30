@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { checkTokenLimit, recordTokenUsage } from "@/lib/token-limit";
 
 const anthropic = new Anthropic();
 
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
 
   if (!rateLimit(authData.user.id).ok) {
     return new Response("Too many requests", { status: 429 });
+  }
+
+  const tokenCheck = await checkTokenLimit(authData.user.id, authData.user.email);
+  if (!tokenCheck.ok) {
+    return new Response("Daily AI limit reached. Try again tomorrow.", { status: 429 });
   }
 
   const { messages, contextId } = await request.json();
@@ -99,6 +105,8 @@ export async function POST(request: Request) {
         });
 
         const message = await stream.finalMessage();
+        const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+        recordTokenUsage(authData.user.id, authData.user.email, tokensUsed);
 
         if (isMapContext) {
           const toolUse = message.content.find(
@@ -135,7 +143,12 @@ export async function POST(request: Request) {
                 controller.enqueue(encoder.encode(t));
               });
 
-              await followUp.finalMessage();
+              const followUpMessage = await followUp.finalMessage();
+              recordTokenUsage(
+                authData.user.id,
+                authData.user.email,
+                followUpMessage.usage.input_tokens + followUpMessage.usage.output_tokens
+              );
             }
 
             const sentinel = `\n[__NAVIGATE__]${JSON.stringify(toolInput)}[/__NAVIGATE__]`;

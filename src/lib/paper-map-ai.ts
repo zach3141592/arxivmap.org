@@ -40,7 +40,7 @@ interface ClusterResult {
   topics: Array<{ label: string; paper_ids: string[] }>;
 }
 
-export async function generateMapClusters(papers: PaperInput[]): Promise<ClusterResult> {
+export async function generateMapClusters(papers: PaperInput[]): Promise<ClusterResult & { tokensUsed: number }> {
   const paperList = papers
     .map((p) => {
       const snippet = p.abstract ? p.abstract.slice(0, 150) : "";
@@ -81,6 +81,7 @@ Rules:
     throw new Error("Failed to parse clusters from Claude response");
   }
 
+  const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
   const result: ClusterResult = JSON.parse(jsonMatch[0]);
 
   // Validate: ensure all paper IDs are accounted for
@@ -106,7 +107,7 @@ Rules:
   // Remove empty topics
   result.topics = result.topics.filter((t) => t.paper_ids.length > 0);
 
-  return result;
+  return { ...result, tokensUsed };
 }
 
 export function buildMapData(clusters: ClusterResult, papers: PaperInput[]): StoredMapData {

@@ -1,6 +1,7 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateMapClusters, buildMapData, StoredMapData } from "@/lib/paper-map-ai";
 import { rateLimit } from "@/lib/rate-limit";
+import { checkTokenLimit, recordTokenUsage } from "@/lib/token-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
 
   if (!rateLimit(authData.user.id).ok) {
     return new Response("Too many requests", { status: 429 });
+  }
+
+  const tokenCheck = await checkTokenLimit(authData.user.id, authData.user.email);
+  if (!tokenCheck.ok) {
+    return new Response("Daily AI limit reached. Try again tomorrow.", { status: 429 });
   }
 
   const serviceClient = createServiceClient();
@@ -124,7 +130,8 @@ export async function POST(request: Request) {
           return;
         }
 
-        const clusters = await generateMapClusters(papers);
+        const { tokensUsed: mapTokens, ...clusters } = await generateMapClusters(papers);
+        recordTokenUsage(authData.user!.id, authData.user!.email, mapTokens);
 
         controller.enqueue(
           encoder.encode(

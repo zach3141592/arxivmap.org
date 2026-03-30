@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
 
-export async function summarizePaper(abstract: string): Promise<string> {
+export async function summarizePaper(abstract: string): Promise<{ summary: string; tokensUsed: number }> {
   const message = await anthropic.messages.create({
     model: "claude-opus-4-6",
     max_tokens: 1500,
@@ -42,7 +42,8 @@ ${abstract}
 
   const block = message.content[0];
   if (block.type === "text") {
-    return block.text;
+    const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+    return { summary: block.text, tokensUsed };
   }
   throw new Error("Unexpected response from Claude");
 }

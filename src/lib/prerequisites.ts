@@ -11,7 +11,7 @@ export interface Prerequisite {
 export async function generatePrerequisites(
   title: string,
   abstract: string
-): Promise<Prerequisite[]> {
+): Promise<{ prerequisites: Prerequisite[]; tokensUsed: number }> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -47,7 +47,9 @@ Return ONLY valid JSON, no markdown:
   if (!match) throw new Error("Failed to parse prerequisites JSON");
 
   const result = JSON.parse(match[0]) as { prerequisites: Prerequisite[] };
-  return result.prerequisites.filter(
+  const prerequisites = result.prerequisites.filter(
     (p) => p.name && p.description && ["basic", "intermediate", "advanced"].includes(p.level)
   );
+  const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+  return { prerequisites, tokensUsed };
 }

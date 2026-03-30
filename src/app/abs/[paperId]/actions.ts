@@ -5,6 +5,7 @@ import { fetchArxivPaper } from "@/lib/arxiv";
 import { summarizePaper } from "@/lib/summarize";
 import { generatePrerequisites, type Prerequisite } from "@/lib/prerequisites";
 import { rateLimit } from "@/lib/rate-limit";
+import { checkTokenLimit, recordTokenUsage } from "@/lib/token-limit";
 
 export type SummarizeResult = {
   status: "idle";
@@ -137,6 +138,11 @@ export async function generatePrerequisitesAction(
     return { status: "error", message: "Too many requests. Please wait a moment." };
   }
 
+  const tokenCheck = await checkTokenLimit(authData.user.id, authData.user.email);
+  if (!tokenCheck.ok) {
+    return { status: "error", message: "Daily AI limit reached. Try again tomorrow." };
+  }
+
   const serviceClient = createServiceClient();
 
   // Check cache
@@ -166,7 +172,9 @@ export async function generatePrerequisitesAction(
 
   let prerequisites: Prerequisite[];
   try {
-    prerequisites = await generatePrerequisites(title, abstract);
+    const result = await generatePrerequisites(title, abstract);
+    prerequisites = result.prerequisites;
+    recordTokenUsage(authData.user.id, authData.user.email, result.tokensUsed);
   } catch (err) {
     console.error("Prerequisites generation failed:", err instanceof Error ? err.message : String(err));
     return { status: "error", message: "Generation failed. Please try again." };
@@ -204,6 +212,11 @@ export async function summarizePaperAction(
     return { status: "error", message: "Too many requests. Please wait a moment." };
   }
 
+  const tokenCheck = await checkTokenLimit(authData.user.id, authData.user.email);
+  if (!tokenCheck.ok) {
+    return { status: "error", message: "Daily AI limit reached. Try again tomorrow." };
+  }
+
   const serviceClient = createServiceClient();
 
   // Check cache first — scoped to this user
@@ -227,7 +240,9 @@ export async function summarizePaperAction(
   // Summarize with Claude
   let summary: string;
   try {
-    summary = await summarizePaper(paper.abstract);
+    const result = await summarizePaper(paper.abstract);
+    summary = result.summary;
+    recordTokenUsage(authData.user.id, authData.user.email, result.tokensUsed);
   } catch (err) {
     console.error("Summarization failed:", err instanceof Error ? err.message : String(err));
     return { status: "error", message: "Summarization failed. Please try again." };
