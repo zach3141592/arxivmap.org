@@ -11,7 +11,7 @@ async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
 
   try {
     const res = await fetch(
-      "https://api.semanticscholar.org/recommendations/v1/papers/?fields=title,authors,abstract,year,externalIds&limit=100",
+      "https://api.semanticscholar.org/recommendations/v1/papers/?fields=title,authors,abstract,year,publicationDate,externalIds&limit=100",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,7 +42,7 @@ async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
           authors,
           abstract: (p.abstract as string) ?? "",
           year: (p.year as number | null) ?? null,
-          month: null,
+          month: p.publicationDate ? new Date(p.publicationDate as string).toLocaleString("en-US", { month: "short" }) : null,
         };
       });
   } catch {
