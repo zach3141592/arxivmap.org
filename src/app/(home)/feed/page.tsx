@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { fetchTrendingArxivPapers } from "@/lib/arxiv";
+import { fetchLatestArxivPapers, type ArxivSearchResult } from "@/lib/arxiv";
 import { FeedClient, type FeedPaper } from "./feed-client";
 
 async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
@@ -50,6 +50,16 @@ async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
   }
 }
 
+function scorePaper(p: ArxivSearchResult, starCounts: Record<string, number>): number {
+  const stars = starCounts[p.id] ?? 0;
+  const daysSince = p.published
+    ? (Date.now() - new Date(p.published).getTime()) / (1000 * 60 * 60 * 24)
+    : 30;
+  // Recency decays to 0 over 14 days; each star adds 5 points
+  const recencyScore = Math.max(0, 1 - daysSince / 14);
+  return stars * 5 + recencyScore;
+}
+
 export default async function FeedPage() {
   const supabase = await createClient();
   const {
@@ -57,30 +67,45 @@ export default async function FeedPage() {
   } = await supabase.auth.getUser();
 
   const serviceClient = createServiceClient();
-  const { data: savedPapers } = await serviceClient
-    .from("paper_summaries")
-    .select("arxiv_id")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+
+  // Run user's saved papers + global star counts in parallel
+  const [{ data: savedPapers }, { data: starredRows }] = await Promise.all([
+    serviceClient
+      .from("paper_summaries")
+      .select("arxiv_id")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    serviceClient
+      .from("paper_summaries")
+      .select("arxiv_id")
+      .eq("starred", true),
+  ]);
 
   const savedIds = (savedPapers ?? []).map((p) => p.arxiv_id);
 
+  const starCounts: Record<string, number> = {};
+  for (const row of starredRows ?? []) {
+    starCounts[row.arxiv_id] = (starCounts[row.arxiv_id] ?? 0) + 1;
+  }
+
   const getCachedFeed = unstable_cache(
     async () => {
-      const [recommendedPapers, trendingArxiv] = await Promise.all([
+      const [recommendedPapers, recentArxiv] = await Promise.all([
         savedIds.length > 0 ? fetchRecommendations(savedIds) : Promise.resolve([]),
-        fetchTrendingArxivPapers(),
+        fetchLatestArxivPapers(["cs.AI", "cs.LG", "cs.CV", "stat.ML"], 100),
       ]);
 
-      const trendingPapers: FeedPaper[] = trendingArxiv.map((p) => ({
-        arxiv_id: p.id,
-        title: p.title,
-        authors: p.authors,
-        abstract: p.abstract,
-        year: p.published ? new Date(p.published).getFullYear() : null,
-        month: p.published ? new Date(p.published).toLocaleString("en-US", { month: "short" }) : null,
-      }));
+      const trendingPapers: FeedPaper[] = [...recentArxiv]
+        .sort((a, b) => scorePaper(b, starCounts) - scorePaper(a, starCounts))
+        .map((p) => ({
+          arxiv_id: p.id,
+          title: p.title,
+          authors: p.authors,
+          abstract: p.abstract,
+          year: p.published ? new Date(p.published).getFullYear() : null,
+          month: p.published ? new Date(p.published).toLocaleString("en-US", { month: "short" }) : null,
+        }));
 
       return { recommendedPapers, trendingPapers };
     },

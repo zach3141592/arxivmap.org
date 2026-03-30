@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ThreeDotMenu } from "../list-utils";
 
@@ -88,6 +88,7 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
 
@@ -227,7 +228,7 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
 
       {importOpen && (
         <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4">
-          {/* Format tabs */}
+          {/* Format tabs + file upload */}
           <div className="mb-3 flex items-center gap-1">
             {(["text", "bibtex", "sql"] as ImportFormat[]).map((fmt) => (
               <button
@@ -243,6 +244,37 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
                 {fmt === "text" ? "Plain Text" : fmt === "bibtex" ? "BibTeX" : "SQL"}
               </button>
             ))}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".bib,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  const text = ev.target?.result as string;
+                  setImportText(text);
+                  setImportResult(null);
+                  if (file.name.endsWith(".bib")) setImportFormat("bibtex");
+                };
+                reader.readAsText(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="ml-auto flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400 transition-colors hover:border-gray-300 hover:text-gray-600"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload file
+            </button>
           </div>
 
           {/* Textarea */}
