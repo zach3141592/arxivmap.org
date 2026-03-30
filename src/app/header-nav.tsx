@@ -7,6 +7,7 @@ const tabs = [
   { href: "/papers", label: "Papers" },
   { href: "/map", label: "My Map" },
   { href: "/how-to-use", label: "How to use" },
+  { href: "/profile", label: "Profile" },
 ];
 
 export function HeaderNav() {

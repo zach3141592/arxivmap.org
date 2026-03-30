@@ -134,6 +134,17 @@ export async function POST(request: Request) {
 
         const mapData = buildMapData(clusters, papers);
 
+        // Build chat context string while paper titles are in memory
+        const paperTitleMap = new Map(papers.map((p) => [p.arxiv_id, p.title]));
+        const total = mapData.topics.reduce((n, t) => n + t.paper_ids.length, 0);
+        let chatContext = `Paper map with ${total} papers across ${mapData.topics.length} topics:\n`;
+        for (const topic of mapData.topics) {
+          chatContext += `\nTopic: "${topic.label}"\n`;
+          for (const id of topic.paper_ids) {
+            chatContext += `- "${paperTitleMap.get(id) ?? id}" (${id})\n`;
+          }
+        }
+
         controller.enqueue(
           encoder.encode(
             `event: progress\ndata: ${JSON.stringify({ step: "Saving...", progress: 0.9 })}\n\n`
@@ -147,6 +158,7 @@ export async function POST(request: Request) {
             user_id: authData.user!.id,
             map_data: mapData,
             paper_count: totalCount,
+            chat_context: chatContext,
             updated_at: new Date().toISOString(),
           });
 

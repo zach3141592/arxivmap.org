@@ -135,6 +135,47 @@ export async function fetchLatestArxivPapers(
   }
 }
 
+export async function fetchTrendingArxivPapers(
+  categories = ["cs.AI", "cs.LG", "cs.CV", "stat.ML"],
+  maxResults = 200
+): Promise<ArxivSearchResult[]> {
+  // Fetch a broad window of recent papers, then rank by citation count
+  const recent = await fetchLatestArxivPapers(categories, maxResults);
+  if (recent.length === 0) return [];
+
+  try {
+    const ids = recent.map((p) => `ArXiv:${p.id}`);
+    const res = await fetch(
+      "https://api.semanticscholar.org/graph/v1/paper/batch?fields=citationCount,externalIds",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+        signal: AbortSignal.timeout(12000),
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) return recent;
+
+    const data: Array<{ citationCount?: number; externalIds?: { ArXiv?: string } } | null> =
+      await res.json();
+
+    const citationMap = new Map<string, number>();
+    for (const paper of data) {
+      if (paper?.externalIds?.ArXiv) {
+        citationMap.set(paper.externalIds.ArXiv, paper.citationCount ?? 0);
+      }
+    }
+
+    return [...recent].sort(
+      (a, b) => (citationMap.get(b.id) ?? 0) - (citationMap.get(a.id) ?? 0)
+    );
+  } catch {
+    return recent;
+  }
+}
+
 export async function searchArxivPapers(
   query: string,
   maxResults: number = 10

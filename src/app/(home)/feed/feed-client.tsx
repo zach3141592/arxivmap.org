@@ -112,14 +112,14 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
   );
 }
 
-type Tab = "latest" | "recommended";
+type Tab = "trending" | "recommended";
 
 export function FeedClient({
   recommendedPapers,
-  latestPapers,
+  trendingPapers,
 }: {
   recommendedPapers: FeedPaper[];
-  latestPapers: FeedPaper[];
+  trendingPapers: FeedPaper[];
 }) {
   const [tab, setTab] = useState<Tab>("recommended");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -127,6 +127,42 @@ export function FeedClient({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<FeedPaper[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  async function runSearch(q: string) {
+    if (!q.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    setIsSearching(true);
+    setSearchResults(null);
+    try {
+      const res = await fetch(`/api/papers/search?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      setSearchResults(
+        (data as Array<{ id: string; title: string; authors: string; abstract: string; published: string }>).map((p) => ({
+          arxiv_id: p.id,
+          title: p.title,
+          authors: p.authors,
+          abstract: p.abstract,
+          year: p.published ? new Date(p.published).getFullYear() : null,
+        }))
+      );
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchQuery("");
+    setSearchResults(null);
+  }
 
   async function handleRefresh() {
     if (isRefreshing) return;
@@ -136,7 +172,7 @@ export function FeedClient({
     setIsRefreshing(false);
   }
 
-  const papers = tab === "latest" ? latestPapers : recommendedPapers;
+  const papers = searchResults ?? (tab === "trending" ? trendingPapers : recommendedPapers);
 
   // Reset visible count when switching tabs
   useEffect(() => {
@@ -196,10 +232,47 @@ export function FeedClient({
 
   return (
     <div ref={scrollRef}>
-      {/* Tab switcher + refresh */}
-      <div className="mb-4 flex items-center gap-2">
+      {/* Search bar */}
+      <form
+        className="mb-4 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); runSearch(searchQuery); }}
+      >
+        <div className="relative flex-1">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value) clearSearch(); }}
+            placeholder={'Search arXiv \u2014 try \u201cRL benchmarks\u201d'}
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-4 pr-9 text-sm outline-none placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-100"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={!searchQuery.trim() || isSearching}
+          className="rounded-xl px-4 py-2.5 text-sm font-medium transition-all disabled:cursor-default disabled:bg-gray-100 disabled:text-gray-300 bg-gray-900 text-white hover:bg-black active:scale-[0.97] disabled:active:scale-100"
+        >
+          {isSearching ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : "Search"}
+        </button>
+      </form>
+
+      {/* Tab switcher + refresh — hidden while showing search results */}
+      <div className={`mb-4 flex items-center gap-2 ${searchResults !== null ? "hidden" : ""}`}>
         <div className="flex gap-1 rounded-xl bg-gray-100 p-1 flex-1">
-          {(["latest", "recommended"] as Tab[]).map((t) => (
+          {(["trending", "recommended"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -234,11 +307,21 @@ export function FeedClient({
         </button>
       </div>
 
-      {papers.length === 0 ? (
+      {searchResults !== null && (
+        <p className="mb-3 text-xs text-gray-400">
+          {searchResults.length > 0
+            ? `${searchResults.length} results for "${searchQuery}"`
+            : `No results for "${searchQuery}"`}
+        </p>
+      )}
+
+      {papers.length === 0 && !isSearching ? (
         <p className="mt-12 text-center text-sm text-gray-400">
-          {tab === "recommended"
+          {searchResults !== null
+            ? `No results for "${searchQuery}"`
+            : tab === "recommended"
             ? "No recommendations yet — try saving more papers to your library."
-            : "No papers found."}
+            : "No trending papers found."}
         </p>
       ) : (
         <div className="space-y-3">

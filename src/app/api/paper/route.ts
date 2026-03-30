@@ -70,16 +70,20 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id, title } = await request.json();
-  if (!id || !title) {
-    return NextResponse.json({ error: "Missing id or title" }, { status: 400 });
+  const { id, title, starred } = await request.json();
+  if (!id || (title === undefined && starred === undefined)) {
+    return NextResponse.json({ error: "Missing id or update fields" }, { status: 400 });
   }
+
+  const update: Record<string, unknown> = {};
+  if (title !== undefined) update.title = title;
+  if (starred !== undefined) update.starred = starred;
 
   const serviceClient = createServiceClient();
 
   await serviceClient
     .from("paper_summaries")
-    .update({ title })
+    .update(update)
     .eq("arxiv_id", id)
     .eq("user_id", authData.user.id);
 

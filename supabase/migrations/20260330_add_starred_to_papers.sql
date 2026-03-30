@@ -1,0 +1,2 @@
+ALTER TABLE paper_summaries
+  ADD COLUMN IF NOT EXISTS starred BOOLEAN NOT NULL DEFAULT false;

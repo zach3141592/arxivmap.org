@@ -9,6 +9,7 @@ interface Paper {
   title: string;
   authors?: string;
   created_at: string | null;
+  starred: boolean;
 }
 
 type ImportFormat = "text" | "bibtex" | "sql";
@@ -80,6 +81,8 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
+  const [starredOnly, setStarredOnly] = useState(false);
+
   const [importOpen, setImportOpen] = useState(false);
   const [importFormat, setImportFormat] = useState<ImportFormat>("text");
   const [importText, setImportText] = useState("");
@@ -89,9 +92,23 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
   const router = useRouter();
 
   const arxivId = extractArxivId(query);
-  const filteredPapers = query && !arxivId
-    ? paperList.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()))
-    : paperList;
+  const filteredPapers = (() => {
+    let list = paperList;
+    if (query && !arxivId) list = list.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()));
+    if (starredOnly) list = list.filter((p) => p.starred);
+    return list;
+  })();
+
+  async function toggleStar(arxivId: string, current: boolean) {
+    setPaperList((prev) =>
+      prev.map((p) => (p.arxiv_id === arxivId ? { ...p, starred: !current } : p))
+    );
+    await fetch("/api/paper", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: arxivId, starred: !current }),
+    });
+  }
 
   const detectedIds = importText.trim() ? parseArxivIds(importText) : [];
 
@@ -187,6 +204,26 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
           Import
         </button>
       </form>
+
+      {paperList.some((p) => p.starred) && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setStarredOnly((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-all"
+            style={{
+              background: starredOnly ? "#fefce8" : "white",
+              borderColor: starredOnly ? "#fde68a" : "#e5e7eb",
+              color: starredOnly ? "#92400e" : "#9ca3af",
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill={starredOnly ? "#f59e0b" : "none"} stroke={starredOnly ? "#f59e0b" : "#9ca3af"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            {starredOnly ? `${filteredPapers.length} starred` : "Starred only"}
+          </button>
+        </div>
+      )}
 
       {importOpen && (
         <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4">
@@ -290,6 +327,16 @@ export function PapersSection({ papers }: { papers: Paper[] }) {
                     </p>
                   </a>
                 )}
+                <button
+                  type="button"
+                  onClick={() => toggleStar(paper.arxiv_id, paper.starred)}
+                  className="shrink-0 rounded p-1 transition-colors hover:bg-gray-100"
+                  title={paper.starred ? "Unstar" : "Star"}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={paper.starred ? "#f59e0b" : "none"} stroke={paper.starred ? "#f59e0b" : "#d1d5db"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </button>
                 <div className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                   <ThreeDotMenu
                     onRename={() => { setRenameValue(paper.title); setRenamingId(paper.arxiv_id); }}

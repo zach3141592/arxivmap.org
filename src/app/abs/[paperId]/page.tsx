@@ -5,6 +5,7 @@ import { ScrollContainer } from "@/components/scroll-container";
 import { SummarySection } from "./summary-section";
 import { RightPanel } from "./right-panel";
 import { PaperLayout } from "./paper-layout";
+import { StarButton } from "./star-button";
 
 export default async function PaperPage({
   params,
@@ -29,7 +30,7 @@ export default async function PaperPage({
   // Check cache for existing summary — scoped to this user
   const { data: cached } = await serviceClient
     .from("paper_summaries")
-    .select("title, authors, abstract, summary")
+    .select("title, authors, abstract, summary, starred")
     .eq("arxiv_id", paperId)
     .eq("user_id", authData.user.id)
     .single();
@@ -100,14 +101,17 @@ export default async function PaperPage({
 
         <p className="mt-4 text-sm leading-relaxed text-gray-400">{authors}</p>
 
-        <a
-          href={`https://arxiv.org/abs/${paperId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-block rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
-        >
-          arxiv.org/{paperId}
-        </a>
+        <div className="mt-3 flex items-center gap-2">
+          <a
+            href={`https://arxiv.org/abs/${paperId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-600"
+          >
+            arxiv.org/{paperId}
+          </a>
+          <StarButton paperId={paperId} initialStarred={cached?.starred ?? false} />
+        </div>
 
         <SummarySection paperId={paperId} initialSummary={initialSummary} abstract={abstract} />
       </article>

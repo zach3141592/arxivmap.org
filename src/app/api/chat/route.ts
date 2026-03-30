@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
-import type { StoredMapData } from "@/lib/paper-map-ai";
 
 const anthropic = new Anthropic();
 
@@ -51,32 +50,11 @@ export async function POST(request: Request) {
   if (isMapContext) {
     const { data: mapRow } = await serviceClient
       .from("paper_maps")
-      .select("map_data")
+      .select("chat_context")
       .eq("user_id", authData.user.id)
       .single();
 
-    if (!mapRow?.map_data) {
-      abstract = "No map data available.";
-    } else {
-      const mapData = mapRow.map_data as StoredMapData;
-      const allPaperIds = mapData.topics.flatMap((t) => t.paper_ids);
-      const { data: papers } = await serviceClient
-        .from("paper_summaries")
-        .select("arxiv_id, title")
-        .eq("user_id", authData.user.id)
-        .in("arxiv_id", allPaperIds);
-
-      const paperTitles = new Map((papers ?? []).map((p) => [p.arxiv_id, p.title]));
-      const total = allPaperIds.length;
-      let ctx = `Paper map with ${total} papers across ${mapData.topics.length} topics:\n`;
-      for (const topic of mapData.topics) {
-        ctx += `\nTopic: "${topic.label}"\n`;
-        for (const id of topic.paper_ids) {
-          ctx += `- "${paperTitles.get(id) ?? id}" (${id})\n`;
-        }
-      }
-      abstract = ctx;
-    }
+    abstract = mapRow?.chat_context ?? "No map data available.";
   } else if (typeof contextId === "string" && contextId.startsWith("paper:")) {
     const paperId = contextId.slice("paper:".length);
     const { data: paper } = await serviceClient
@@ -97,7 +75,9 @@ export async function POST(request: Request) {
   const streamParams: Anthropic.MessageStreamParams = {
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 1024,
-    system: systemPrompt,
+    system: isMapContext
+      ? [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }]
+      : systemPrompt,
     messages,
   };
 

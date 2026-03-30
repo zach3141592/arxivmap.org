@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { fetchLatestArxivPapers } from "@/lib/arxiv";
+import { fetchTrendingArxivPapers } from "@/lib/arxiv";
 import { FeedClient, type FeedPaper } from "./feed-client";
 
 async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
@@ -67,12 +67,12 @@ export default async function FeedPage() {
 
   const getCachedFeed = unstable_cache(
     async () => {
-      const [recommendedPapers, latestArxiv] = await Promise.all([
+      const [recommendedPapers, trendingArxiv] = await Promise.all([
         savedIds.length > 0 ? fetchRecommendations(savedIds) : Promise.resolve([]),
-        fetchLatestArxivPapers(),
+        fetchTrendingArxivPapers(),
       ]);
 
-      const latestPapers: FeedPaper[] = latestArxiv.map((p) => ({
+      const trendingPapers: FeedPaper[] = trendingArxiv.map((p) => ({
         arxiv_id: p.id,
         title: p.title,
         authors: p.authors,
@@ -80,13 +80,13 @@ export default async function FeedPage() {
         year: p.published ? new Date(p.published).getFullYear() : null,
       }));
 
-      return { recommendedPapers, latestPapers };
+      return { recommendedPapers, trendingPapers };
     },
     [`feed-${user!.id}`],
     { tags: [`feed-${user!.id}`] }
   );
 
-  const { recommendedPapers, latestPapers } = await getCachedFeed();
+  const { recommendedPapers, trendingPapers } = await getCachedFeed();
 
   return (
     <div>
@@ -95,7 +95,7 @@ export default async function FeedPage() {
       </div>
       <FeedClient
         recommendedPapers={recommendedPapers}
-        latestPapers={latestPapers}
+        trendingPapers={trendingPapers}
       />
     </div>
   );
