@@ -92,6 +92,7 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
   const [saved, setSaved] = useState(false);
   const [starred, setStarred] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const tags = getTags(paper.title, paper.abstract);
 
   const abstract =
@@ -170,12 +171,20 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
           >
             <BookmarkIcon filled={saved} />
           </button>
-          <a
-            href={`/abs/${paper.arxiv_id}`}
-            className="rounded-full bg-gray-900 px-4 py-1.5 text-xs font-medium text-white transition-all hover:bg-black active:scale-[0.97]"
+          <button
+            onClick={() => {
+              startTransition(async () => {
+                await savePaperAction(paper);
+                router.push(`/abs/${paper.arxiv_id}`);
+              });
+            }}
+            disabled={isPending}
+            className="rounded-full bg-gray-900 px-4 py-1.5 text-xs font-medium text-white transition-all hover:bg-black active:scale-[0.97] disabled:opacity-60"
           >
-            Open
-          </a>
+            {isPending ? (
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : "Open"}
+          </button>
         </div>
       </div>
     </article>
