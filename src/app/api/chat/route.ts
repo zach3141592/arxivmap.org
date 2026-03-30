@@ -90,26 +90,63 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
-      stream.on("text", (text) => {
-        controller.enqueue(encoder.encode(text));
-      });
-      stream.on("message", (message) => {
+      try {
+        let hasText = false;
+
+        stream.on("text", (text) => {
+          hasText = true;
+          controller.enqueue(encoder.encode(text));
+        });
+
+        const message = await stream.finalMessage();
+
         if (isMapContext) {
           const toolUse = message.content.find(
             (b): b is Anthropic.ToolUseBlock =>
               b.type === "tool_use" && b.name === "navigate_map"
           );
+
           if (toolUse) {
-            const sentinel = `\n[__NAVIGATE__]${JSON.stringify(toolUse.input)}[/__NAVIGATE__]`;
+            const toolInput = toolUse.input as { paper_ids: string[]; topic_label?: string };
+
+            // If Claude called the tool without any text, follow up to get an explanation
+            if (!hasText) {
+              const followUp = anthropic.messages.stream({
+                model: "claude-sonnet-4-5-20250929",
+                max_tokens: 512,
+                system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+                messages: [
+                  ...messages,
+                  { role: "assistant", content: message.content },
+                  {
+                    role: "user",
+                    content: [{
+                      type: "tool_result",
+                      tool_use_id: toolUse.id,
+                      content: toolInput.paper_ids.length > 0
+                        ? `Highlighted ${toolInput.paper_ids.length} papers on the map.`
+                        : "Cleared all highlights from the map.",
+                    }],
+                  },
+                ],
+              });
+
+              followUp.on("text", (t) => {
+                controller.enqueue(encoder.encode(t));
+              });
+
+              await followUp.finalMessage();
+            }
+
+            const sentinel = `\n[__NAVIGATE__]${JSON.stringify(toolInput)}[/__NAVIGATE__]`;
             controller.enqueue(encoder.encode(sentinel));
           }
         }
-        controller.close();
-      });
-      stream.on("error", (err) => {
+      } catch (err) {
         console.error("Stream error:", err);
-        controller.close();
-      });
+      }
+
+      controller.close();
     },
   });
 

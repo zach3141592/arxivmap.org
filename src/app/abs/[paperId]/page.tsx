@@ -30,7 +30,7 @@ export default async function PaperPage({
   // Check cache for existing summary — scoped to this user
   const { data: cached } = await serviceClient
     .from("paper_summaries")
-    .select("title, authors, abstract, summary, starred")
+    .select("title, authors, abstract, summary, starred, prerequisites")
     .eq("arxiv_id", paperId)
     .eq("user_id", authData.user.id)
     .single();
@@ -113,7 +113,12 @@ export default async function PaperPage({
           <StarButton paperId={paperId} initialStarred={cached?.starred ?? false} />
         </div>
 
-        <SummarySection paperId={paperId} initialSummary={initialSummary} abstract={abstract} />
+        <SummarySection
+          paperId={paperId}
+          initialSummary={initialSummary}
+          abstract={abstract}
+          initialPrerequisites={cached?.prerequisites ?? null}
+        />
       </article>
     </ScrollContainer>
   );
