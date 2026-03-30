@@ -32,7 +32,7 @@ export default async function HomeLayout({ children }: { children: React.ReactNo
   let githubStars: number | null = null;
   try {
     const res = await fetch("https://api.github.com/repos/zach3141592/arxivmap.org", {
-      next: { revalidate: 300 },
+      next: { revalidate: 60 },
       headers: { Accept: "application/vnd.github+json" },
     });
     if (res.ok) {

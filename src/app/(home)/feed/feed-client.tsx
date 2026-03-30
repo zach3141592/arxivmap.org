@@ -10,6 +10,7 @@ export interface FeedPaper {
   authors: string;
   abstract: string;
   year: number | null;
+  month: string | null;
 }
 
 const PAGE_SIZE = 10;
@@ -94,7 +95,7 @@ function FeedCard({ paper }: { paper: FeedPaper }) {
       <div className="mt-4 flex items-center gap-3">
         {paper.year && (
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] text-gray-400">
-            {paper.year}
+            {paper.month ? `${paper.month} ${paper.year}` : paper.year}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -174,6 +175,7 @@ export function FeedClient({
           authors: p.authors,
           abstract: p.abstract,
           year: p.published ? new Date(p.published).getFullYear() : null,
+          month: p.published ? new Date(p.published).toLocaleString("en-US", { month: "short" }) : null,
         }))
       );
     } catch {

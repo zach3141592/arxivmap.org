@@ -42,6 +42,7 @@ async function fetchRecommendations(arxivIds: string[]): Promise<FeedPaper[]> {
           authors,
           abstract: (p.abstract as string) ?? "",
           year: (p.year as number | null) ?? null,
+          month: null,
         };
       });
   } catch {
@@ -78,6 +79,7 @@ export default async function FeedPage() {
         authors: p.authors,
         abstract: p.abstract,
         year: p.published ? new Date(p.published).getFullYear() : null,
+        month: p.published ? new Date(p.published).toLocaleString("en-US", { month: "short" }) : null,
       }));
 
       return { recommendedPapers, trendingPapers };
