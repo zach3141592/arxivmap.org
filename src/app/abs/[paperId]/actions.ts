@@ -26,6 +26,100 @@ export type PrerequisitesResult = {
   message: string;
 };
 
+export interface FurtherReadingPaper {
+  arxiv_id: string;
+  title: string;
+  authors: string;
+  year: number | null;
+}
+
+export type FurtherReadingResult = {
+  status: "idle";
+} | {
+  status: "success";
+  papers: FurtherReadingPaper[];
+} | {
+  status: "error";
+  message: string;
+};
+
+export async function generateFurtherReadingAction(
+  _prevState: FurtherReadingResult,
+  formData: FormData
+): Promise<FurtherReadingResult> {
+  const paperId = formData.get("paperId") as string;
+  if (!paperId) return { status: "error", message: "Missing paper ID." };
+  if (!isSupabaseConfigured()) return { status: "error", message: "Service not configured." };
+
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return { status: "error", message: "You must be signed in." };
+
+  if (!rateLimit(authData.user.id).ok) {
+    return { status: "error", message: "Too many requests. Please wait a moment." };
+  }
+
+  const serviceClient = createServiceClient();
+
+  // Check cache
+  const { data: cached } = await serviceClient
+    .from("paper_summaries")
+    .select("further_reading")
+    .eq("arxiv_id", paperId)
+    .eq("user_id", authData.user.id)
+    .single();
+
+  if (cached?.further_reading) {
+    return { status: "success", papers: cached.further_reading as FurtherReadingPaper[] };
+  }
+
+  try {
+    const res = await fetch(
+      "https://api.semanticscholar.org/recommendations/v1/papers/?fields=title,authors,year,externalIds&limit=12",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positivePaperIds: [`arXiv:${paperId}`] }),
+        signal: AbortSignal.timeout(12000),
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) return { status: "error", message: "Could not fetch recommendations." };
+
+    const data = await res.json();
+    const papers: FurtherReadingPaper[] = (data.recommendedPapers ?? [])
+      .filter((p: Record<string, unknown>) => {
+        const ids = p.externalIds as Record<string, string> | undefined;
+        return ids?.ArXiv;
+      })
+      .slice(0, 10)
+      .map((p: Record<string, unknown>) => {
+        const ids = p.externalIds as Record<string, string>;
+        const authors = ((p.authors as { name: string }[]) ?? [])
+          .slice(0, 3)
+          .map((a) => a.name)
+          .join(", ");
+        return {
+          arxiv_id: ids.ArXiv,
+          title: (p.title as string) ?? "",
+          authors: (p.authors as { name: string }[]).length > 3 ? `${authors} et al.` : authors,
+          year: (p.year as number | null) ?? null,
+        };
+      });
+
+    await serviceClient
+      .from("paper_summaries")
+      .update({ further_reading: papers })
+      .eq("arxiv_id", paperId)
+      .eq("user_id", authData.user.id);
+
+    return { status: "success", papers };
+  } catch {
+    return { status: "error", message: "Failed to fetch recommendations. Please try again." };
+  }
+}
+
 export async function generatePrerequisitesAction(
   _prevState: PrerequisitesResult,
   formData: FormData

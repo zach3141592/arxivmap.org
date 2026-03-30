@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { fetchArxivPaper } from "@/lib/arxiv";
+import { fetchArxivPaper, fetchArxivCategories } from "@/lib/arxiv";
 import { ScrollContainer } from "@/components/scroll-container";
 import { SummarySection } from "./summary-section";
 import { RightPanel } from "./right-panel";
@@ -30,7 +30,7 @@ export default async function PaperPage({
   // Check cache for existing summary — scoped to this user
   const { data: cached } = await serviceClient
     .from("paper_summaries")
-    .select("title, authors, abstract, summary, starred, prerequisites")
+    .select("title, authors, abstract, summary, starred, prerequisites, tags, further_reading")
     .eq("arxiv_id", paperId)
     .eq("user_id", authData.user.id)
     .single();
@@ -40,6 +40,7 @@ export default async function PaperPage({
   let authors: string;
   let abstract: string;
   let initialSummary: string | null = null;
+  let tags: string[] | null = cached?.tags ?? null;
 
   if (cached) {
     title = cached.title;
@@ -69,6 +70,7 @@ export default async function PaperPage({
     title = paper.title;
     authors = paper.authors;
     abstract = paper.abstract;
+    tags = paper.categories ?? null;
 
     // Save paper on first visit so it appears in the home page list
     const { error: saveError } = await serviceClient.from("paper_summaries").upsert(
@@ -79,10 +81,24 @@ export default async function PaperPage({
         authors,
         abstract,
         summary: null,
+        tags,
       },
       { onConflict: "arxiv_id,user_id", ignoreDuplicates: true }
     );
     if (saveError) console.error("Failed to save paper on visit:", saveError);
+  }
+
+  // Backfill tags for cached papers that predate this feature
+  if (cached && !tags) {
+    const fetched = await fetchArxivCategories(paperId);
+    if (fetched.length > 0) {
+      tags = fetched;
+      await serviceClient
+        .from("paper_summaries")
+        .update({ tags })
+        .eq("arxiv_id", paperId)
+        .eq("user_id", authData.user.id);
+    }
   }
 
   const articleContent = (
@@ -113,11 +129,25 @@ export default async function PaperPage({
           <StarButton paperId={paperId} initialStarred={cached?.starred ?? false} />
         </div>
 
+        {tags && tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-500"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         <SummarySection
           paperId={paperId}
           initialSummary={initialSummary}
           abstract={abstract}
           initialPrerequisites={cached?.prerequisites ?? null}
+          initialFurtherReading={cached?.further_reading ?? null}
         />
       </article>
     </ScrollContainer>

@@ -3,6 +3,7 @@ export interface ArxivPaper {
   authors: string;
   abstract: string;
   published?: string;
+  categories?: string[];
 }
 
 export interface ArxivSearchResult {
@@ -36,11 +37,17 @@ async function fetchFromArxiv(paperId: string): Promise<ArxivPaper | null> {
     const publishedMatch = entry.match(/<published>([^<]+)<\/published>/);
     const published = publishedMatch ? publishedMatch[1].trim() : undefined;
 
+    const categoryMatches = [...entry.matchAll(/<category[^>]*\bterm="([\w./-]+)"/g)];
+    const categories = [...new Set(
+      categoryMatches.map((m) => m[1]).filter((c) => /^\w+\.\w+/.test(c))
+    )];
+
     return {
       title: titleMatch[1].replace(/\s+/g, " ").trim(),
       authors,
       abstract: abstractMatch[1].replace(/\s+/g, " ").trim(),
       published,
+      categories: categories.length > 0 ? categories : undefined,
     };
   } catch {
     return null;
@@ -130,6 +137,25 @@ export async function fetchLatestArxivPapers(
       if (parsed) results.push(parsed);
     }
     return results;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchArxivCategories(paperId: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(paperId)}`,
+      { signal: AbortSignal.timeout(7000) }
+    );
+    if (!res.ok) return [];
+    const xml = await res.text();
+    const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
+    if (!entryMatch) return [];
+    const categoryMatches = [...entryMatch[1].matchAll(/<category[^>]*\bterm="([\w./-]+)"/g)];
+    return [...new Set(
+      categoryMatches.map((m) => m[1]).filter((c) => /^\w+\.\w+/.test(c))
+    )];
   } catch {
     return [];
   }

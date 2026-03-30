@@ -5,8 +5,11 @@ import { useActionState } from "react";
 import {
   summarizePaperAction,
   generatePrerequisitesAction,
+  generateFurtherReadingAction,
   type SummarizeResult,
   type PrerequisitesResult,
+  type FurtherReadingResult,
+  type FurtherReadingPaper,
 } from "./actions";
 import type { Prerequisite } from "@/lib/prerequisites";
 
@@ -111,11 +114,13 @@ export function SummarySection({
   initialSummary,
   abstract,
   initialPrerequisites,
+  initialFurtherReading,
 }: {
   paperId: string;
   initialSummary: string | null;
   abstract: string;
   initialPrerequisites: Prerequisite[] | null;
+  initialFurtherReading: FurtherReadingPaper[] | null;
 }) {
   const initialSummaryState: SummarizeResult = initialSummary
     ? { status: "success", summary: initialSummary }
@@ -123,6 +128,10 @@ export function SummarySection({
 
   const initialPrereqState: PrerequisitesResult = initialPrerequisites
     ? { status: "success", prerequisites: initialPrerequisites }
+    : { status: "idle" };
+
+  const initialFurtherReadingState: FurtherReadingResult = initialFurtherReading
+    ? { status: "success", papers: initialFurtherReading }
     : { status: "idle" };
 
   const [summaryState, summaryAction, isSummaryPending] = useActionState(
@@ -135,7 +144,12 @@ export function SummarySection({
     initialPrereqState
   );
 
-  const [activeTab, setActiveTab] = useState<"abstract" | "summary" | "prerequisites">(
+  const [furtherReadingState, furtherReadingAction, isFurtherReadingPending] = useActionState(
+    generateFurtherReadingAction,
+    initialFurtherReadingState
+  );
+
+  const [activeTab, setActiveTab] = useState<"abstract" | "summary" | "prerequisites" | "further-reading">(
     initialSummary ? "summary" : "abstract"
   );
 
@@ -143,7 +157,7 @@ export function SummarySection({
     <section className="mt-10 pb-24">
       {/* Tab row */}
       <div className="flex border-b border-gray-100">
-        {(["abstract", "summary", "prerequisites"] as const).map((tab) => (
+        {(["abstract", "summary", "prerequisites", "further-reading"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -153,7 +167,7 @@ export function SummarySection({
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "abstract" ? "Abstract" : tab === "summary" ? "AI Summary" : "Prerequisites"}
+            {tab === "abstract" ? "Abstract" : tab === "summary" ? "AI Summary" : tab === "prerequisites" ? "Prerequisites" : "Further Reading"}
           </button>
         ))}
       </div>
@@ -209,6 +223,45 @@ export function SummarySection({
                 className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPrereqPending ? "Analyzing..." : "Show Prerequisites"}
+              </button>
+            </form>
+          </>
+        )}
+
+        {activeTab === "further-reading" && furtherReadingState.status === "success" && (
+          <div className="space-y-2">
+            {furtherReadingState.papers.map((paper) => (
+              <a
+                key={paper.arxiv_id}
+                href={`/abs/${paper.arxiv_id}`}
+                className="block rounded-xl border border-gray-100 bg-white px-4 py-3.5 transition-colors hover:border-gray-200 hover:bg-gray-50"
+              >
+                <p className="text-[14px] font-medium leading-snug text-gray-900">{paper.title}</p>
+                <p className="mt-1 text-[12px] text-gray-400">
+                  {paper.authors}
+                  {paper.year ? <span className="ml-2 text-gray-300">{paper.year}</span> : null}
+                </p>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "further-reading" && furtherReadingState.status !== "success" && (
+          <>
+            {furtherReadingState.status === "error" && (
+              <p className="mb-4 text-sm text-red-500">{furtherReadingState.message}</p>
+            )}
+            <div className="mb-4 text-sm text-gray-400">
+              Find related papers that build on or complement this work.
+            </div>
+            <form action={furtherReadingAction}>
+              <input type="hidden" name="paperId" value={paperId} />
+              <button
+                type="submit"
+                disabled={isFurtherReadingPending}
+                className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isFurtherReadingPending ? "Finding papers..." : "Find Related Papers"}
               </button>
             </form>
           </>
