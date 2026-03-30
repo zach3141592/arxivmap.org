@@ -1,13 +1,15 @@
 import { createClient, createServiceClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import type { AchievementStats } from "@/lib/achievements";
-import { AchievementsGrid } from "./achievements-grid";
-import { ProfileForm } from "./profile-form";
-import { AvatarDisplay } from "./avatar-upload";
-import { StarredPapers } from "./starred-papers";
-import { ShareProfileButton } from "./share-profile-button";
+import { AchievementsGrid } from "../achievements-grid";
+import { AvatarDisplay } from "../avatar-upload";
+import { StarredPapers } from "../starred-papers";
 
-export default async function ProfilePage() {
+interface Props {
+  params: Promise<{ userId: string }>;
+}
+
+export default async function PublicProfilePage({ params }: Props) {
   if (!isSupabaseConfigured()) {
     return <p className="text-sm text-gray-400">Supabase not configured.</p>;
   }
@@ -16,8 +18,12 @@ export default async function ProfilePage() {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) redirect("/login");
 
-  const userId = authData.user.id;
-  const email = authData.user.email ?? "";
+  const { userId } = await params;
+
+  // Redirect to own profile page for cleaner URL
+  if (userId === authData.user.id) {
+    redirect("/profile");
+  }
 
   const serviceClient = createServiceClient();
 
@@ -60,6 +66,11 @@ export default async function ProfilePage() {
       .order("created_at", { ascending: false }),
   ]);
 
+  // If no profile row and no papers, this user doesn't exist
+  if (!profileResult.data && (paperCountResult.count ?? 0) === 0) {
+    notFound();
+  }
+
   const profile = profileResult.data;
   const paperCount = paperCountResult.count ?? 0;
   const summarizedCount = summarizedCountResult.count ?? 0;
@@ -80,34 +91,19 @@ export default async function ProfilePage() {
         <AvatarDisplay
           avatarUrl={avatarUrl}
           displayName={displayName}
-          email={email}
+          email=""
           size="lg"
         />
         <div className="min-w-0 flex-1 space-y-1">
           <h1 className="truncate text-lg font-semibold text-gray-900">
-            {displayName || email}
+            {displayName || "Anonymous researcher"}
           </h1>
-          {displayName && (
-            <p className="text-sm text-gray-400">{email}</p>
-          )}
-          <div className="flex items-center gap-2 pt-0.5">
-            <ProfileForm
-              userId={userId}
-              email={email}
-              displayName={displayName}
-              bio={bio}
-              avatarUrl={avatarUrl}
-            />
-            <ShareProfileButton userId={userId} />
-          </div>
         </div>
       </div>
 
       {/* Bio */}
-      {bio ? (
+      {bio && (
         <p className="text-sm leading-relaxed text-gray-600">{bio}</p>
-      ) : (
-        <p className="text-sm italic text-gray-300">No bio yet.</p>
       )}
 
       {/* Stats */}
@@ -126,7 +122,7 @@ export default async function ProfilePage() {
       <AchievementsGrid stats={achievementStats} />
 
       {/* Starred papers */}
-      <StarredPapers papers={starredPapers} isOwn={true} />
+      <StarredPapers papers={starredPapers} isOwn={false} />
     </div>
   );
 }
